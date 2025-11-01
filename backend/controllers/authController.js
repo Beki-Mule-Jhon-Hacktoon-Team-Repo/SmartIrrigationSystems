@@ -94,3 +94,48 @@ exports.register = async (req, res) => {
     });
   }
 };
+
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ status: 'fail', message: 'Email and password are required' });
+    }
+
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      return res
+        .status(401)
+        .json({ status: 'fail', message: 'Incorrect email or password' });
+    }
+
+    const correct = await user.correctPassword(password, user.password);
+    if (!correct) {
+      return res
+        .status(401)
+        .json({ status: 'fail', message: 'Incorrect email or password' });
+    }
+
+    user.password = undefined;
+    return res.status(200).json({ status: 'success', data: { user } });
+  } catch (err) {
+    console.error('login error:', err && err.message);
+    return res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+};
+
+exports.getUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user)
+      return res
+        .status(404)
+        .json({ status: 'fail', message: 'User not found' });
+    return res.status(200).json({ status: 'success', data: { user } });
+  } catch (err) {
+    console.error('getUser error:', err && err.message);
+    return res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+};
