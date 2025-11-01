@@ -1,15 +1,15 @@
-const Sensor = require('../models/sensorModel');
+const Sensor = require("../models/sensorModel");
 
 // Create a sensor reading
 exports.createSensor = async (req, res) => {
   try {
     const doc = await Sensor.create(req.body);
-    return res.status(201).json({ status: 'success', data: { sensor: doc } });
+    return res.status(201).json({ status: "success", data: { sensor: doc } });
   } catch (err) {
-    console.error('createSensor error:', err && err.message);
+    console.error("createSensor error:", err && err.message);
     return res
       .status(400)
-      .json({ status: 'fail', message: err && err.message });
+      .json({ status: "fail", message: err && err.message });
   }
 };
 
@@ -23,7 +23,7 @@ exports.getSensors = async (req, res) => {
       to,
       page = 1,
       limit = 50,
-      sort = '-timestamp',
+      sort = "-timestamp",
     } = req.query;
     const filter = {};
     if (farmId) filter.farmId = farmId;
@@ -37,16 +37,14 @@ exports.getSensors = async (req, res) => {
       .sort(sort)
       .skip(skip)
       .limit(Number(limit));
-    return res
-      .status(200)
-      .json({
-        status: 'success',
-        results: docs.length,
-        data: { sensors: docs },
-      });
+    return res.status(200).json({
+      status: "success",
+      results: docs.length,
+      data: { sensors: docs },
+    });
   } catch (err) {
-    console.error('getSensors error:', err && err.message);
-    return res.status(500).json({ status: 'error', message: 'Server error' });
+    console.error("getSensors error:", err && err.message);
+    return res.status(500).json({ status: "error", message: "Server error" });
   }
 };
 
@@ -57,11 +55,11 @@ exports.getSensor = async (req, res) => {
     if (!doc)
       return res
         .status(404)
-        .json({ status: 'fail', message: 'Sensor not found' });
-    return res.status(200).json({ status: 'success', data: { sensor: doc } });
+        .json({ status: "fail", message: "Sensor not found" });
+    return res.status(200).json({ status: "success", data: { sensor: doc } });
   } catch (err) {
-    console.error('getSensor error:', err && err.message);
-    return res.status(500).json({ status: 'error', message: 'Server error' });
+    console.error("getSensor error:", err && err.message);
+    return res.status(500).json({ status: "error", message: "Server error" });
   }
 };
 
@@ -75,13 +73,13 @@ exports.updateSensor = async (req, res) => {
     if (!doc)
       return res
         .status(404)
-        .json({ status: 'fail', message: 'Sensor not found' });
-    return res.status(200).json({ status: 'success', data: { sensor: doc } });
+        .json({ status: "fail", message: "Sensor not found" });
+    return res.status(200).json({ status: "success", data: { sensor: doc } });
   } catch (err) {
-    console.error('updateSensor error:', err && err.message);
+    console.error("updateSensor error:", err && err.message);
     return res
       .status(400)
-      .json({ status: 'fail', message: err && err.message });
+      .json({ status: "fail", message: err && err.message });
   }
 };
 
@@ -92,10 +90,26 @@ exports.deleteSensor = async (req, res) => {
     if (!doc)
       return res
         .status(404)
-        .json({ status: 'fail', message: 'Sensor not found' });
-    return res.status(204).json({ status: 'success', data: null });
+        .json({ status: "fail", message: "Sensor not found" });
+    return res.status(204).json({ status: "success", data: null });
   } catch (err) {
-    console.error('deleteSensor error:', err && err.message);
-    return res.status(500).json({ status: 'error', message: 'Server error' });
+    console.error("deleteSensor error:", err && err.message);
+    return res.status(500).json({ status: "error", message: "Server error" });
+  }
+};
+
+// Get device status by deviceId
+exports.getDeviceStatus = async (req, res) => {
+  try {
+    const deviceId = req.params.deviceId;
+    return res.status(200).json({
+      deviceId: deviceId,
+      registered: true,
+      status: "active",
+      farmerId: "farmer123",
+    });
+  } catch (err) {
+    console.error("getDeviceStatus error:", err && err.message);
+    return res.status(500).json({ status: "error", message: "Server error" });
   }
 };

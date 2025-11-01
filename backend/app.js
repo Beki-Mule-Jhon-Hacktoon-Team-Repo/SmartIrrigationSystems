@@ -9,6 +9,9 @@ const cors = require("cors");
 const morgan = require("morgan");
 const authRoutes = require("./routes/auth");
 const sensorRoutes = require("./routes/sensors");
+const weatherRoutes = require("./routes/weatherRoutes");
+const irrigationRoutes = require("./routes/irrigationRoutes");
+const User = require("./models/userModel");
 
 // Initialize Firebase Admin if service account available
 let firebaseInitialized = false;

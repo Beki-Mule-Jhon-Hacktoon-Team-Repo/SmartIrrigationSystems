@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.post("/", controller.createSensor);
 router.get("/", controller.getSensors);
+router.get("/device-status/:deviceId", controller.getDeviceStatus);
 router.get("/:id", controller.getSensor);
 router.patch("/:id", controller.updateSensor);
 router.delete("/:id", controller.deleteSensor);
