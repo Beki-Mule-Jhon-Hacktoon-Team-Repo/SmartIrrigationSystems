@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { Mail, MapPin, Phone } from "lucide-react"
+import Link from "next/link";
+import { Mail, MapPin, Phone } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="bg-primary text-primary-foreground border-t">
+    <footer className="bg-gradient-to-r from-primary to-orange-200 text-primary-foreground border-t">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           {/* Company Info */}
@@ -71,7 +71,10 @@ export function Footer() {
             <ul className="space-y-2 text-sm">
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4" />
-                <a href="mailto:info@smartagrisense.com" className="hover:underline">
+                <a
+                  href="mailto:info@smartagrisense.com"
+                  className="hover:underline"
+                >
                   info@smartagrisense.com
                 </a>
               </li>
@@ -90,20 +93,31 @@ export function Footer() {
         </div>
 
         <div className="border-t border-primary-foreground/20 pt-8 flex flex-col sm:flex-row justify-between items-center">
-          <p className="text-sm text-primary-foreground/80">© 2025 SmartAgriSense. All rights reserved.</p>
+          <p className="text-sm text-primary-foreground/80">
+            © 2025 SmartAgriSense. All rights reserved.
+          </p>
           <div className="flex gap-4 mt-4 sm:mt-0">
-            <a href="#" className="text-primary-foreground/80 hover:text-primary-foreground">
+            <a
+              href="#"
+              className="text-primary-foreground/80 hover:text-primary-foreground"
+            >
               Twitter
             </a>
-            <a href="#" className="text-primary-foreground/80 hover:text-primary-foreground">
+            <a
+              href="#"
+              className="text-primary-foreground/80 hover:text-primary-foreground"
+            >
               LinkedIn
             </a>
-            <a href="#" className="text-primary-foreground/80 hover:text-primary-foreground">
+            <a
+              href="#"
+              className="text-primary-foreground/80 hover:text-primary-foreground"
+            >
               Facebook
             </a>
           </div>
         </div>
       </div>
     </footer>
-  )
+  );
 }
