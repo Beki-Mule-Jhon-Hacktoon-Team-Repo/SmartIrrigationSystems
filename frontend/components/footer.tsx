@@ -81,12 +81,12 @@ export function Footer() {
               <li className="flex items-center gap-2">
                 <Phone className="w-4 h-4" />
                 <a href="tel:+1234567890" className="hover:underline">
-                  +1 (234) 567-890
+                  +251-974-512-450
                 </a>
               </li>
               <li className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                <span>Agricultural Hub, USA</span>
+                <span>Bahir Dar, ETHIOPIA</span>
               </li>
             </ul>
           </div>
