@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 export function CtaSection() {
   return (
-    <section className="bg-linear-to-r from-primary to-orange-200 text-primary-foreground py-16">
+    <section className="bg-linear-to-r dark:from-green-800 from-primary dark:to-orange-800 to-orange-200 text-primary-foreground py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <h2 className="text-3xl md:text-4xl font-bold mb-4">
           Ready to Optimize Your Farm?

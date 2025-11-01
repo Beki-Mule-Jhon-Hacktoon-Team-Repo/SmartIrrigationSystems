@@ -115,6 +115,8 @@ export default function LoginPage() {
 
       dispatch(loginSuccess({ user: serverUser, idToken }));
       // redirect to /farmers after successful login
+      router.push("/farmer");
+      console.log(serverUser);
     } catch (err) {
       console.error("Google login error", err);
       // optional: dispatch error status or show a toast
