@@ -7,7 +7,7 @@ import { Leaf } from "lucide-react";
 
 export function Hero() {
   return (
-    <section className="min-h-screen flex items-center px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-primary/5 via-background to-accent/5">
+    <section className="min-h-screen flex items-center px-4 sm:px-6 lg:px-8 bg-linear-to-br from-primary/5 via-background to-accent/5">
       <div className="max-w-6xl mx-auto w-full">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           {/* Left Content */}
@@ -73,8 +73,8 @@ export function Hero() {
 
           {/* Right Visual */}
           <div className="relative h-96 md:h-full">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl blur-3xl"></div>
-            <div className="relative bg-gradient-to-br from-primary/10 to-accent/10 rounded-2xl border border-primary/20 p-8 h-full flex items-center justify-center">
+            <div className="absolute inset-0 bg-linear-to-br from-primary/20 to-accent/20 rounded-2xl blur-3xl"></div>
+            <div className="relative bg-linear-to-br from-primary/10 to-accent/10 rounded-2xl border border-primary/20 p-8 h-full flex items-center justify-center">
               <div className="space-y-6 w-full">
                 <div className="bg-card rounded-lg p-4 space-y-2 border border-border shadow-lg">
                   <div className="flex items-center justify-between">

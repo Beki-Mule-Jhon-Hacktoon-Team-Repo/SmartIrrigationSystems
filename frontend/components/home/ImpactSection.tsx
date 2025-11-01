@@ -29,7 +29,7 @@ export function ImpactSection() {
   return (
     <section
       id="impact"
-      className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-primary/5 to-accent/5"
+      className="py-20 px-4 sm:px-6 lg:px-8 bg-linear-to-r from-primary/5 to-accent/5"
     >
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16 space-y-4">
@@ -43,10 +43,10 @@ export function ImpactSection() {
           {impacts.map((item, i) => (
             <Card
               key={i}
-              className="p-8 text-center border-0 bg-gradient-to-br to-background"
+              className="p-8 text-center border-0 bg-linear-to-br to-background"
             >
               <div
-                className={`bg-gradient-to-br ${item.color} rounded-lg p-8 mb-4`}
+                className={`bg-linear-to-br ${item.color} rounded-lg p-8 mb-4`}
               >
                 <div className="text-white text-4xl font-bold">
                   {item.metric}
