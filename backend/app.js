@@ -5,6 +5,8 @@ const http = require('http');
 const admin = require('firebase-admin');
 const fs = require('fs');
 const path = require('path');
+const cors = require('cors');
+const morgan = require('morgan'); // added morgan
 
 // Initialize Firebase Admin if service account available
 let firebaseInitialized = false;
@@ -35,10 +37,28 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
 const app = express();
 const server = http.createServer(app);
 
+// enable CORS
+app.use(cors());
+
+// enable morgan in development for request logging
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
+
+// simple request logging for debugging (keeps existing header logging)
+app.use((req, _res, next) => {
+  console.log(
+    `[req] ${req.method} ${req.originalUrl} - Authorization: ${String(
+      req.headers.authorization || ''
+    ).slice(0, 80)}`
+  );
+  next();
+});
+
 // Basic JSON parsing
 app.use(express.json());
 
-// Middleware to verify Firebase ID token
+// Middleware to verify Firebase ID token (improved logging & detailed error response)
 const verifyFirebaseToken = async (req, res, next) => {
   if (!firebaseInitialized) {
     return res.status(500).json({
@@ -62,13 +82,51 @@ const verifyFirebaseToken = async (req, res, next) => {
     req.user = decoded; // attach decoded token (uid, email, etc.)
     return next();
   } catch (err) {
-    console.error('Token verification failed:', err && err.message);
-    return res.status(401).json({
+    // log detailed firebase error for debugging 403/401
+    console.error(
+      'Token verification failed:',
+      err && err.code,
+      err && err.message
+    );
+    const code = (err && err.code) || 'auth/unknown-error';
+    const status = code === 'auth/id-token-expired' ? 401 : 401;
+    return res.status(status).json({
       status: 'fail',
-      message: 'Invalid or expired ID token',
+      code,
+      message: err && err.message,
     });
   }
 };
+
+// Diagnostic endpoint: verify arbitrary idToken (POST)
+app.post('/api/v1/auth/verify', async (req, res) => {
+  if (!firebaseInitialized) {
+    return res
+      .status(500)
+      .json({ status: 'error', message: 'Firebase not initialized' });
+  }
+  const idToken = req.body && req.body.idToken;
+  if (!idToken) {
+    return res
+      .status(400)
+      .json({ status: 'fail', message: 'idToken required in body' });
+  }
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    return res.status(200).json({ status: 'success', decoded });
+  } catch (err) {
+    console.error(
+      'verify endpoint error:',
+      err && err.code,
+      err && err.message
+    );
+    return res.status(401).json({
+      status: 'fail',
+      code: err && err.code,
+      message: err && err.message,
+    });
+  }
+});
 
 // Public health check
 app.get('/api/health', (req, res) => {
