@@ -50,7 +50,7 @@ export default function RegisterPage() {
               <Input
                 id="name"
                 type="text"
-                placeholder="John Doe"
+                placeholder="Smart AgriSense"
                 required
                 className="bg-input"
               />
@@ -61,7 +61,7 @@ export default function RegisterPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="smartagrisense@gmail.com"
                 required
                 className="bg-input"
               />
