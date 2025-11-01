@@ -7,7 +7,7 @@ import { AlertCircle } from "lucide-react";
 export default function NotFound() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Navbar />
+      {/* <Navbar /> */}
 
       <main className="grow max-w-3xl w-full mx-auto px-4 py-24 flex flex-col items-center justify-center text-center">
         <AlertCircle className="w-16 h-16 text-muted-foreground mb-6" />
@@ -30,7 +30,7 @@ export default function NotFound() {
         </div>
       </main>
 
-      <Footer />
+      {/* <Footer /> */}
     </div>
   );
 }
