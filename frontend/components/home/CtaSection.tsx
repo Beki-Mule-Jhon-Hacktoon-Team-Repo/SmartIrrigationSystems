@@ -15,7 +15,7 @@ export function CtaSection() {
         </p>
         <Link href="/register">
           <Button size="lg" variant="secondary">
-            Start Your Free Trial Today
+            Start Your Journey Today
           </Button>
         </Link>
       </div>
