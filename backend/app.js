@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan'); // added morgan
+const authRoutes = require('./routes/auth'); // <<< add this require
 
 // Initialize Firebase Admin if service account available
 let firebaseInitialized = false;
@@ -128,6 +129,16 @@ app.post('/api/v1/auth/verify', async (req, res) => {
   }
 });
 
+// Debug endpoint to inspect headers / firebase state
+app.get('/api/v1/auth/debug', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Debug info',
+    headers: req.headers,
+    firebaseInitialized,
+  });
+});
+
 // Public health check
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -145,6 +156,9 @@ app.get('/api/v1/auth/profile', verifyFirebaseToken, (req, res) => {
     user: req.user,
   });
 });
+
+// Mount auth routes (ensure this is after special auth endpoints so /profile isn't captured by /:id)
+app.use('/api/v1/auth', authRoutes);
 
 // ------------------- 404 & Error Handler -------------------
 app.use((req, res) => {
