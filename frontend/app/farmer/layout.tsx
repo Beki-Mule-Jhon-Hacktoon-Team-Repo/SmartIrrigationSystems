@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-// import { FarmerSidebar } from "@/components/farmer/sidebar"
+import { FarmerSidebar } from "@/components/farmer/sidebar";
 
 export default function FarmerLayout({
   children,
@@ -11,7 +11,7 @@ export default function FarmerLayout({
 }) {
   return (
     <div className="flex h-screen bg-background">
-      {/* <FarmerSidebar /> */}
+      <FarmerSidebar />
       <main className="flex-1 overflow-auto md:ml-0">{children}</main>
     </div>
   );
