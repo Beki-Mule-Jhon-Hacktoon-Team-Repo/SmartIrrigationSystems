@@ -1,3 +1,33 @@
+// "use client";
+
+// import type React from "react";
+
+// import { Navbar } from "@/components/navbar";
+// import { Footer } from "@/components/footer";
+// import { Button } from "@/components/ui/button";
+// import { Card } from "@/components/ui/card";
+// import { Input } from "@/components/ui/input";
+// import { Label } from "@/components/ui/label";
+// import Link from "next/link";
+// import { useEffect, useState, useCallback } from "react";
+// import { Eye, EyeOff } from "lucide-react";
+// import { useAppDispatch } from "@/store/hooks";
+// import { loginStart, loginSuccess, logout } from "@/store/authSlice";
+// import {
+//   auth,
+//   provider,
+//   signInWithPopup,
+//   firebaseSignOut,
+//   onAuthStateChanged,
+// } from "@/lib/firebase";
+// import { useRouter } from "next/navigation";
+
+// export default function LoginPage() {
+//   const [showPassword, setShowPassword] = useState(false);
+//   const [loading, setLoading] = useState(false);
+//   const dispatch = useAppDispatch();
+//   const router = useRouter();
+
 "use client";
 
 import type React from "react";
@@ -10,6 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { useAppDispatch } from "@/store/hooks";
 import { loginStart, loginSuccess, logout } from "@/store/authSlice";
@@ -25,6 +56,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const dispatch = useAppDispatch();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -40,31 +72,54 @@ export default function LoginPage() {
       const firebaseUser = result.user;
       const idToken = await firebaseUser.getIdToken();
 
+      // build a safe base URL: prefer NEXT_PUBLIC_API_BASE_URL, otherwise use current origin
+      const baseUrl =
+        process.env.NEXT_PUBLIC_API_BASE_URL &&
+        process.env.NEXT_PUBLIC_API_BASE_URL !== ""
+          ? process.env.NEXT_PUBLIC_API_BASE_URL
+          : typeof window !== "undefined"
+          ? window.location.origin
+          : "";
+
+      const url = `http://localhost:5000/api/v1/auth/google`;
+
       // send idToken to backend for server-side verification and user creation
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL ?? ""}/api/v1/auth/google`,
-        {
+      let res;
+      try {
+        res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ idToken }),
-        }
-      );
+        });
+      } catch (networkErr) {
+        console.error(
+          "Network error when calling backend:",
+          networkErr,
+          "url:",
+          url
+        );
+        throw networkErr;
+      }
 
       if (!res.ok) {
+        const txt = await res.text().catch(() => "(no body)");
+        console.error("Backend returned non-OK status", res.status, txt);
         throw new Error("Server verification failed");
       }
-      const body = await res.json();
+
+      const body = await res.json().catch(() => ({}));
       const serverUser = body?.data?.user || {
         name: firebaseUser.displayName,
         email: firebaseUser.email,
       };
 
       dispatch(loginSuccess({ user: serverUser, idToken }));
+      // redirect to /farmers after successful login
     } catch (err) {
       console.error("Google login error", err);
-      // optional: dispatch error status
+      // optional: dispatch error status or show a toast
     }
-  }, [dispatch]);
+  }, [dispatch, router]);
 
   useEffect(() => {
     // subscribe to Firebase auth state and restore
