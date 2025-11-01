@@ -9,6 +9,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 const authRoutes = require("./routes/auth");
 const sensorRoutes = require("./routes/sensors");
+const User = require("./models/userModel");
 
 // Initialize Firebase Admin if service account available
 let firebaseInitialized = false;
@@ -99,6 +100,52 @@ const verifyFirebaseToken = async (req, res, next) => {
     });
   }
 };
+
+app.post("/api/v1/auth/google", async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken)
+    return res
+      .status(400)
+      .json({ status: "fail", message: "idToken required" });
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const { uid, email, name, picture } = decoded;
+    if (!email) {
+      return res
+        .status(400)
+        .json({ status: "fail", message: "Email not present in token" });
+    }
+
+    // Find existing user by email
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // create new user
+      user = await User.create({
+        firebaseUid: uid,
+        email,
+        name: name || undefined,
+        role: "user",
+      });
+      // optionally store picture if available on a separate profile store or as metadata
+      console.log(`Created new user ${email} (uid=${uid})`);
+    } else if (!user.firebaseUid) {
+      // link firebase uid if missing
+      user.firebaseUid = uid;
+      if (name) user.name = user.name || name;
+      await user.save();
+      console.log(
+        `Linked firebase uid for existing user ${email} (uid=${uid})`
+      );
+    }
+
+    // Return user record
+    res.status(200).json({ status: "success", data: { user } });
+  } catch (err) {
+    res.status(401).json({ status: "fail", message: err.message });
+  }
+});
 
 // Diagnostic endpoint: verify arbitrary idToken (POST)
 app.post("/api/v1/auth/verify", async (req, res) => {

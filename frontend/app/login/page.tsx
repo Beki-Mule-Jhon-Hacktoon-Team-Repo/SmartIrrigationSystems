@@ -9,18 +9,88 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { useAppDispatch } from "@/store/hooks";
+import { loginStart, loginSuccess, logout } from "@/store/authSlice";
+import {
+  auth,
+  provider,
+  signInWithPopup,
+  firebaseSignOut,
+  onAuthStateChanged,
+} from "@/lib/firebase";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const dispatch = useAppDispatch();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     // Simulate login delay
     setTimeout(() => setLoading(false), 1000);
+  };
+
+  const loginWithGoogle = useCallback(async () => {
+    dispatch(loginStart());
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const firebaseUser = result.user;
+      const idToken = await firebaseUser.getIdToken();
+
+      // send idToken to backend for server-side verification and user creation
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL ?? ""}/api/v1/auth/google`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Server verification failed");
+      }
+      const body = await res.json();
+      const serverUser = body?.data?.user || {
+        name: firebaseUser.displayName,
+        email: firebaseUser.email,
+      };
+
+      dispatch(loginSuccess({ user: serverUser, idToken }));
+    } catch (err) {
+      console.error("Google login error", err);
+      // optional: dispatch error status
+    }
+  }, [dispatch]);
+
+  useEffect(() => {
+    // subscribe to Firebase auth state and restore
+    const unsub = onAuthStateChanged(auth, async (u: any) => {
+      if (u) {
+        const idToken = await u.getIdToken();
+        const user = {
+          name: u.displayName,
+          email: u.email,
+          picture: u.photoURL,
+        };
+        dispatch(loginSuccess({ user, idToken }));
+      } else {
+        dispatch(logout());
+      }
+    });
+    return () => unsub();
+  }, [dispatch]);
+
+  const handleSignOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+    } catch (e) {
+      // ignore
+    }
+    dispatch(logout());
   };
 
   return (
@@ -35,6 +105,30 @@ export default function LoginPage() {
             <p className="text-muted-foreground">
               Sign in to your SmartAgriSense account
             </p>
+          </div>
+
+          <div className="mb-4">
+            <Button
+              variant="ghost"
+              className="w-full flex items-center justify-center gap-2"
+              onClick={loginWithGoogle}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 48 48"
+                className="w-5 h-5"
+              >
+                <path
+                  fill="#fbbc05"
+                  d="M43.6 20.5H42V20H24v8h11.3C34.6 32 30 34 24 34c-7 0-13-6-13-13s6-13 13-13c3.3 0 6.3 1.2 8.6 3.2l6.1-6.1C34.6 2.9 29.6 1 24 1 11.8 1 2 10.8 2 23s9.8 22 22 22c12 0 21.7-8.9 22-20.8.4-1.4.4-2.9.4-3.7 0-.8 0-1.5-.8-2z"
+                />
+                <path
+                  fill="#518ef8"
+                  d="M6.3 14.9l6.6 4.8C14.9 17.2 19 13 24 13c3.3 0 6.3 1.2 8.6 3.2l6.1-6.1C34.6 2.9 29.6 1 24 1 16.9 1 10.7 4.8 6.3 14.9z"
+                />
+              </svg>
+              Sign in with Google
+            </Button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
