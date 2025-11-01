@@ -10,7 +10,11 @@ try {
   try {
     authController = require('../controllers/authContoller'); // fallback to previously typo'd file
   } catch (err2) {
-    console.error('Failed to load auth controller (tried authController and authContoller):', err1.message, err2 && err2.message);
+    console.error(
+      'Failed to load auth controller (tried authController and authContoller):',
+      err1.message,
+      err2 && err2.message
+    );
     authController = null;
   }
 }
@@ -23,7 +27,10 @@ const safeHandler = (ctrl, name) => {
     }
   } catch (err) {
     // fall through to fallback
-    console.error(`Error accessing handler ${name} on controller:`, err && err.message);
+    console.error(
+      `Error accessing handler ${name} on controller:`,
+      err && err.message
+    );
   }
   // fallback handler always a function (avoids "argument handler must be a function")
   return (req, res) => {
@@ -40,6 +47,15 @@ router.post('/register', safeHandler(authController, 'register'));
 
 // POST /api/v1/auth/login
 router.post('/login', safeHandler(authController, 'login'));
+
+// POST /api/v1/auth/forgotPassword
+router.post('/forgotPassword', safeHandler(authController, 'forgotPassword'));
+
+// PATCH /api/v1/auth/resetPassword/:token
+router.patch(
+  '/resetPassword/:token',
+  safeHandler(authController, 'resetPassword')
+);
 
 // GET /api/v1/auth/:id
 router.get('/:id', safeHandler(authController, 'getUser'));

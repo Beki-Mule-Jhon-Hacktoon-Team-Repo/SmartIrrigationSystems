@@ -1,6 +1,8 @@
 // controllers/authController.js
 const User = require('../models/userModel');
 const admin = require('firebase-admin');
+const sendEmail = require('../utils/email');
+const crypto = require('crypto');
 
 exports.register = async (req, res) => {
   try {
@@ -136,6 +138,96 @@ exports.getUser = async (req, res) => {
     return res.status(200).json({ status: 'success', data: { user } });
   } catch (err) {
     console.error('getUser error:', err && err.message);
+    return res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+};
+
+// POST /api/v1/auth/forgotPassword
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email)
+      return res
+        .status(400)
+        .json({ status: 'fail', message: 'Email required' });
+
+    const user = await User.findOne({ email });
+    if (!user)
+      return res
+        .status(404)
+        .json({ status: 'fail', message: 'No user with that email' });
+
+    const resetToken = user.createPasswordResetToken();
+    await user.save({ validateBeforeSave: false });
+
+    const resetUrl = `${req.protocol}://${req.get(
+      'host'
+    )}/api/v1/auth/resetPassword/${resetToken}`;
+    const message = `You requested a password reset. Submit a PATCH request with your new password and passwordConfirm to: ${resetUrl}\nIf you didn't request this, ignore this email.`;
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Your password reset token (valid for 10 minutes)',
+        message,
+      });
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Token sent to email!',
+      });
+    } catch (emailErr) {
+      // cleanup token fields on failure
+      user.passwordResetToken = undefined;
+      user.passwordResetExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+      console.error('Error sending reset email:', emailErr && emailErr.message);
+      return res
+        .status(500)
+        .json({
+          status: 'error',
+          message: 'Error sending email. Try again later.',
+        });
+    }
+  } catch (err) {
+    console.error('forgotPassword error:', err && err.message);
+    return res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+};
+
+// PATCH /api/v1/auth/resetPassword/:token
+exports.resetPassword = async (req, res) => {
+  try {
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(req.params.token)
+      .digest('hex');
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+    if (!user)
+      return res
+        .status(400)
+        .json({ status: 'fail', message: 'Token is invalid or has expired' });
+
+    user.password = req.body.password;
+    user.passwordConfirm = req.body.passwordConfirm;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    user.password = undefined;
+    return res
+      .status(200)
+      .json({
+        status: 'success',
+        message: 'Password has been reset',
+        data: { user },
+      });
+  } catch (err) {
+    console.error('resetPassword error:', err && err.message);
     return res.status(500).json({ status: 'error', message: 'Server error' });
   }
 };

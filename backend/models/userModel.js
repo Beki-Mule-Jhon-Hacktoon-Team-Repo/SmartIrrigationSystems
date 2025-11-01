@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const validator = require('validator'); // added validator
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema(
   {
@@ -32,8 +33,12 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       minlength: 8,
-      select: false, 
+      select: false,
     },
+    // added fields for password reset flow
+    passwordResetToken: String,
+    passwordResetExpires: Date,
+
     passwordChangedAt: Date,
   },
   {
@@ -65,7 +70,24 @@ userSchema.methods.correctPassword = async function (
   return bcrypt.compare(candidatePassword, userPassword);
 };
 
-// Instance method to check if password was changed after a given timestamp (in seconds)
+// Create password reset token method
+userSchema.methods.createPasswordResetToken = function () {
+  // generate plain token
+  const resetToken = crypto.randomBytes(32).toString('hex');
+
+  // hash token and set to schema fields
+  this.passwordResetToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // expire in 10 minutes
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
+};
+
+// Instance method to check if password was changed after a given JWT timestamp (in seconds)
 userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
   if (this.passwordChangedAt) {
     const changedTimestamp = parseInt(
