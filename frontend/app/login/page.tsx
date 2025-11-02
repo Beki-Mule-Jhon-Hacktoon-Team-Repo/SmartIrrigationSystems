@@ -42,7 +42,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { loginStart, loginSuccess, logout } from "@/store/authSlice";
 import {
   auth,
@@ -57,6 +57,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const dispatch = useAppDispatch();
   const router = useRouter();
+
+  const authState = useAppSelector((s) => s.auth);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -114,8 +116,16 @@ export default function LoginPage() {
       };
 
       dispatch(loginSuccess({ user: serverUser, idToken }));
+      console.log("Logged in user:", serverUser);
       // redirect to /farmers after successful login
-      router.push("/farmer");
+      if (serverUser?.role === "admin") {
+        router.push("/admin");
+      }
+
+      if (serverUser?.role === "user") {
+        router.push("/farmer");
+      }
+
       console.log(serverUser);
     } catch (err) {
       console.error("Google login error", err);
@@ -127,13 +137,41 @@ export default function LoginPage() {
     // subscribe to Firebase auth state and restore
     const unsub = onAuthStateChanged(auth, async (u: any) => {
       if (u) {
-        const idToken = await u.getIdToken();
-        const user = {
-          name: u.displayName,
-          email: u.email,
-          picture: u.photoURL,
-        };
-        dispatch(loginSuccess({ user, idToken }));
+        try {
+          const idToken = await u.getIdToken();
+
+          // Try to fetch the canonical server user (so we have role and other DB fields)
+          const url = `http://localhost:5000/api/v1/auth/google`;
+          let serverUser = null;
+          try {
+            const resp = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken }),
+            });
+            if (resp.ok) {
+              const body = await resp.json().catch(() => ({}));
+              serverUser = body?.data?.user || null;
+            } else {
+              console.warn("Auth verify returned non-OK", resp.status);
+            }
+          } catch (e) {
+            console.warn(
+              "Could not reach auth endpoint to hydrate server user:",
+              e
+            );
+          }
+
+          const user = serverUser || {
+            name: u.displayName,
+            email: u.email,
+            picture: u.photoURL,
+          };
+
+          dispatch(loginSuccess({ user, idToken }));
+        } catch (e) {
+          console.error("onAuthStateChanged handler failed:", e);
+        }
       } else {
         dispatch(logout());
       }
