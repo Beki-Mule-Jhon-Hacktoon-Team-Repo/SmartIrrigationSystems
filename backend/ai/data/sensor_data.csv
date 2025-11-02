@@ -1,0 +1,6 @@
+temperature,humidity,soil,ph,npk,crop_type,water_need
+27.3,58,43,6.8,75,maize,1.0
+24.0,65,50,6.5,80,wheat,0.8
+31.0,45,35,6.2,60,teff,0.7
+29.5,50,40,6.4,70,sorghum,0.9
+26.8,60,45,6.9,72,maize,1.1

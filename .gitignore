@@ -1,7 +1,7 @@
 # === Node.js / Backend ===
 backend/node_modules/
 # backend/.env
-backend/serviceAccountKey.json
+# backend/serviceAccountKey.json
 backend/npm-debug.log*
 backend/.npm
 # backend/.env.local
