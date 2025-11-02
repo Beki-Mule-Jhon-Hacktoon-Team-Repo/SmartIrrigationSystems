@@ -4,6 +4,17 @@ const User = require('../models/userModel');
 const admin = require('firebase-admin');
 const sendEmail = require('../utils/email');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+
+
+const signToken = (user) => {
+  const secret = process.env.JWT_SECRET || 'dev_jwt_secret';
+  return jwt.sign(
+    { id: user._id, email: user.email, role: user.role },
+    secret,
+    { expiresIn: '7d' }
+  );
+};
 
 
 exports.register = async (req, res) => {
@@ -85,10 +96,11 @@ exports.register = async (req, res) => {
     });
 
     user.password = undefined;
-
+    const token = signToken(user);
     return res.status(201).json({
       status: "success",
       data: { user, firebaseUid },
+      token,
     });
   } catch (err) {
     console.error("Register error:", err);
@@ -123,7 +135,10 @@ exports.login = async (req, res) => {
     }
 
     user.password = undefined;
-    return res.status(200).json({ status: "success", data: { user } });
+    const token = signToken(user);
+    return res
+      .status(200)
+      .json({ status: "success", data: { user }, token });
   } catch (err) {
     console.error("login error:", err && err.message);
     return res.status(500).json({ status: "error", message: "Server error" });

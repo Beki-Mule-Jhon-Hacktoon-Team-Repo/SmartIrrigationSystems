@@ -40,6 +40,14 @@ const userSchema = new mongoose.Schema(
     passwordResetExpires: Date,
 
     passwordChangedAt: Date,
+
+    // reference to farms owned/managed by this user
+    farms: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Farm',
+      },
+    ],
   },
   {
     timestamps: true,

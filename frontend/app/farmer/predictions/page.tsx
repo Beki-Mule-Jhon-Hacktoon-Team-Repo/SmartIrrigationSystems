@@ -15,6 +15,7 @@ import {
   Area,
 } from "recharts";
 import { Brain, TrendingUp } from "lucide-react";
+import Link from "next/link";
 
 const predictionData = [
   { day: "Today", actual: 55, predicted: 55 },
@@ -33,6 +34,13 @@ const yieldPrediction = [
   { month: "May", yield: 350 },
 ];
 
+// Realtime manager
+import {
+  init as initRealtime,
+  subscribe as subscribeRealtime,
+  setDeviceId as realtimeSetDeviceId,
+} from "@/lib/realtime";
+
 export default function PredictionsPage() {
   // API base (env override or fallback to same origin)
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
@@ -40,7 +48,6 @@ export default function PredictionsPage() {
   // helper: build prediction payload from a sensor snapshot (use only selected fields)
   const buildPredictPayload = (sensor: any) => {
     if (!sensor) return null;
-    // Use only temperature, humidity and soil for AI prediction (exclude ph and npk)
     const temperature =
       sensor.temperature != null ? Number(sensor.temperature) : NaN;
     const humidity = sensor.humidity != null ? Number(sensor.humidity) : NaN;
@@ -61,9 +68,18 @@ export default function PredictionsPage() {
   const [latestPrediction, setLatestPrediction] = useState<any | null>(null);
   const [predictHistory, setPredictHistory] = useState<any[]>([]);
 
-  // --- New: realtime socket & auto-predict state ---
-  const latestSensorRef = useRef<any | null>(null); // freshest sensor snapshot
-  const [latestSensor, setLatestSensor] = useState<any | null>(null); // for UI
+  // realtime state (local mirrors)
+  const [latestSensor, setLatestSensor] = useState<any | null>(null);
+  const latestSensorRef = useRef<any | null>(null);
+  const [moistureData, setMoistureData] = useState<any[]>([
+    { time: "12:00", moisture: 45 },
+    { time: "1:00", moisture: 48 },
+    { time: "2:00", moisture: 52 },
+  ]);
+  const [temperatureData, setTemperatureData] = useState<any[]>([
+    { time: "12:00", temperature: 22 },
+    { time: "13:00", temperature: 23 },
+  ]);
   const [rtPredictHistory, setRtPredictHistory] = useState<any[]>(() => {
     try {
       const raw = localStorage.getItem("rtPredictHistory");
@@ -72,12 +88,9 @@ export default function PredictionsPage() {
       return [];
     }
   });
-  const predictIntervalRef = useRef<number | null>(null);
-  const socketRef = useRef<any>(null);
   const [rtPredicting, setRtPredicting] = useState(false);
-  // --- end realtime state ---
 
-  // Device selection (prompt modal)
+  // device modal state (existing)
   const [deviceId, setDeviceId] = useState<string>(() => {
     try {
       return localStorage.getItem("deviceId") || "";
@@ -94,6 +107,7 @@ export default function PredictionsPage() {
   });
   const [deviceInput, setDeviceInput] = useState<string>(deviceId);
 
+  // save & join should inform realtime manager
   const saveAndJoin = (id: string) => {
     if (!id) return;
     setDeviceId(id);
@@ -101,228 +115,158 @@ export default function PredictionsPage() {
       localStorage.setItem("deviceId", id);
     } catch {}
     setShowDeviceModal(false);
-    // emit join if socket already connected
     try {
-      const s = socketRef.current;
-      if (s && s.connected) s.emit("join-device", id);
+      realtimeSetDeviceId(id);
     } catch {}
   };
 
-  // load prediction history from localStorage on mount
+  // subscribe to realtime manager and init once
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("predictHistory");
-      if (raw) setPredictHistory(JSON.parse(raw));
-    } catch (e) {
-      // ignore
-    }
+    let unsub: (() => void) | null = null;
+    (async () => {
+      await initRealtime({
+        socketUrl: process.env.NEXT_PUBLIC_SOCKET_URL || "",
+      });
+      unsub = subscribeRealtime((s: any) => {
+        if (s.latest) {
+          latestSensorRef.current = s.latest;
+          setLatestSensor(s.latest);
+        }
+        if (Array.isArray(s.moistureData)) setMoistureData(s.moistureData);
+        if (Array.isArray(s.temperatureData))
+          setTemperatureData(s.temperatureData);
+      });
+    })();
+    return () => {
+      if (unsub) unsub();
+    };
   }, []);
 
-  const saveHistory = (entry: any) => {
-    try {
-      const next = [entry, ...predictHistory].slice(0, 50);
-      setPredictHistory(next);
-      localStorage.setItem("predictHistory", JSON.stringify(next));
-    } catch (e) {}
-  };
-
-  // manual submit (use API_BASE)
-  const submitPredict = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setPredictError(null);
-
-    const payload = {
-      temperature: Number(predictForm.temperature),
-      humidity: Number(predictForm.humidity),
-      soil: Number(predictForm.soil),
-      ph: Number(predictForm.ph),
-      npk: Number(predictForm.npk),
+  // 30s auto-predict using freshest snapshot
+  useEffect(() => {
+    let mounted = true;
+    const doPredict = async () => {
+      const sensor = latestSensorRef.current;
+      if (!sensor) return;
+      const payload = buildPredictPayload(sensor);
+      if (!payload) return;
+      if (
+        [payload.temperature, payload.humidity, payload.soil].some((v) =>
+          Number.isNaN(v)
+        )
+      )
+        return;
+      setRtPredicting(true);
+      try {
+        const base = API_BASE ? API_BASE.replace(/\/$/, "") : "";
+        const url = "http://localhost:5000/predict";
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch {
+          data = { status: "error", message: "invalid json" };
+        }
+        const entry = {
+          id: Date.now(),
+          input: payload,
+          response: data,
+          createdAt: new Date().toISOString(),
+        };
+        if (!mounted) return;
+        setRtPredictHistory((prev) => {
+          const next = [entry, ...prev].slice(0, 200);
+          try {
+            localStorage.setItem("rtPredictHistory", JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      } catch (err) {
+        console.error("rt predict failed", err);
+      } finally {
+        if (mounted) setRtPredicting(false);
+      }
     };
 
-    if (
-      [
-        payload.temperature,
-        payload.humidity,
-        payload.soil,
-        payload.ph,
-        payload.npk,
-      ].some((v) => Number.isNaN(v))
-    ) {
-      setPredictError("Please enter valid numeric values for all fields.");
-      return;
-    }
+    // run first after small delay then every 30s
+    const timeout = window.setTimeout(() => doPredict(), 3000);
+    const interval = window.setInterval(() => doPredict(), 30000);
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [API_BASE]);
 
+  async function submitPredict(
+    event: React.FormEvent<HTMLFormElement>
+  ): Promise<void> {
+    event.preventDefault();
+    if (predicting) return;
+    setPredictError(null);
     setPredicting(true);
+
     try {
+      const temperature = Number(predictForm.temperature);
+      const humidity = Number(predictForm.humidity);
+      const soil = Number(predictForm.soil);
+      const ph = Number(predictForm.ph);
+      const npk = Number(predictForm.npk);
+
+      if ([temperature, humidity, soil, ph, npk].some((v) => Number.isNaN(v))) {
+        setPredictError("Please provide valid numeric values for all fields.");
+        setPredicting(false);
+        return;
+      }
+
+      const payload = { temperature, humidity, soil, ph, npk };
+
       const base = API_BASE ? API_BASE.replace(/\/$/, "") : "";
-      const url = base ? `${base}/predict` : `/predict`;
+      const url = "http://localhost:5000/predict";
+
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) {
-        let errText = `Request failed: ${res.status}`;
-        try {
-          const body = await res.json();
-          if (body?.message) errText = String(body.message);
-          else if (body?.error) errText = String(body.error);
-          else errText = JSON.stringify(body);
-        } catch {
-          try {
-            const txt = await res.text();
-            if (txt) errText = txt;
-          } catch {}
-        }
-        setPredictError(errText);
-        return;
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = { status: "error", message: "invalid json" };
       }
 
-      const data = await res.json();
       const entry = {
         id: Date.now(),
         input: payload,
         response: data,
         createdAt: new Date().toISOString(),
       };
+
       setLatestPrediction(entry);
-      saveHistory(entry);
-    } catch (err) {
-      console.error("Predict request failed", err);
-      setPredictError("Prediction request failed. Check server/network.");
+      setPredictHistory((prev) => {
+        const next = [entry, ...prev].slice(0, 200);
+        try {
+          localStorage.setItem("predictHistory", JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    } catch (err: any) {
+      console.error("predict failed", err);
+      setPredictError(String(err?.message ?? err));
     } finally {
       setPredicting(false);
     }
-  };
+  }
 
-  // --- New: socket connection + 30s auto-predict ---
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const { io } = await import("socket.io-client");
-      const socketUrl = "https://smartirrigationsystems.onrender.com";
-
-      const socket = io(socketUrl, {
-        transports: ["websocket"],
-        autoConnect: true,
-      });
-      socketRef.current = socket;
-
-      socket.on("connect", () => {
-        console.log("socket connected", socket.id);
-        // optionally join stored device room
-        try {
-          const dev = localStorage.getItem("deviceId");
-          if (dev) socket.emit("join-device", dev);
-        } catch {}
-        // start interval if not started
-        if (!predictIntervalRef.current) {
-          predictIntervalRef.current = window.setInterval(async () => {
-            const sensor = latestSensorRef.current;
-            if (!sensor) return;
-            // build payload using only temperature, humidity and soil
-            const payload = buildPredictPayload(sensor);
-            if (
-              // validate the selected fields
-              [payload?.temperature, payload?.humidity, payload?.soil].some(
-                (v) => Number.isNaN(v)
-              )
-            )
-              return;
-            setRtPredicting(true);
-            try {
-              const base = API_BASE ? API_BASE.replace(/\/$/, "") : "";
-              const url = "http://localhost:5000/predict";
-              const res = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-              let data;
-              try {
-                data = await res.json();
-              } catch {
-                data = { status: "error", message: "invalid json" };
-              }
-              const entry = {
-                id: Date.now(),
-                input: payload,
-                response: data,
-                createdAt: new Date().toISOString(),
-              };
-              setRtPredictHistory((prev) => {
-                const next = [entry, ...prev].slice(0, 200);
-                try {
-                  localStorage.setItem(
-                    "rtPredictHistory",
-                    JSON.stringify(next)
-                  );
-                } catch {}
-                return next;
-              });
-            } catch (err) {
-              console.error("realtime predict failed", err);
-            } finally {
-              setRtPredicting(false);
-            }
-          }, 30000); // 30s
-        }
-      });
-
-      socket.on("device-data", (payload: any) => {
-        if (!mounted) return;
-        const soilVal =
-          typeof payload.soil === "number"
-            ? payload.soil
-            : payload.soilMoisture ?? null;
-        const temp =
-          typeof payload.temperature === "number" ? payload.temperature : null;
-        const hum =
-          typeof payload.humidity === "number" ? payload.humidity : null;
-        const ph = typeof payload.ph === "number" ? payload.ph : null;
-        const npk = typeof payload.npk === "number" ? payload.npk : null;
-        const receivedAt = payload.receivedAt
-          ? new Date(payload.receivedAt).toLocaleTimeString()
-          : new Date().toLocaleTimeString();
-
-        const snapshot = {
-          temperature: temp,
-          humidity: hum,
-          soil: soilVal,
-          ph,
-          npk,
-          receivedAt,
-        };
-        latestSensorRef.current = snapshot;
-        setLatestSensor(snapshot);
-
-        // optionally update small charts or UI here (omitted for brevity)
-      });
-
-      socket.on("disconnect", () => {
-        console.log("socket disconnected");
-      });
-    })();
-
-    return () => {
-      mounted = false;
-      try {
-        if (predictIntervalRef.current) {
-          clearInterval(predictIntervalRef.current);
-          predictIntervalRef.current = null;
-        }
-        if (socketRef.current) {
-          socketRef.current.disconnect();
-        }
-      } catch {}
-    };
-  }, [API_BASE]);
-
-  // UI render: reuse existing charts and add realtime panel + realtime history
+  // UI render — reuse existing layout but source data from local realtime mirrors (moistureData, temperatureData, rtPredictHistory)
   return (
     <div className="p-4 md:p-8 space-y-8">
-      {/* NOTE: realtime prediction uses temperature, humidity and soil from incoming sensor data */}
       <div className="text-sm text-muted-foreground">
         Realtime predict fields: <strong>temperature, humidity, soil</strong>
       </div>
@@ -406,61 +350,54 @@ export default function PredictionsPage() {
         </div>
       </Card>
 
-      {/* Soil Moisture Prediction */}
+      {/* Soil moisture chart uses moistureData */}
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-6">
           <Brain className="w-5 h-5 text-primary" />
-          <h2 className="font-semibold text-lg">
-            Soil Moisture Prediction (7 days)
-          </h2>
+          <h2 className="font-semibold text-lg">Soil Moisture (Realtime)</h2>
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={predictionData}>
+          <LineChart data={moistureData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="day" />
+            <XAxis dataKey="time" />
             <YAxis />
             <Tooltip />
             <Legend />
             <Line
               type="monotone"
-              dataKey="actual"
+              dataKey="moisture"
               stroke="hsl(var(--color-primary))"
               strokeWidth={2}
-            />
-            <Line
-              type="monotone"
-              dataKey="predicted"
-              stroke="hsl(var(--color-accent))"
-              strokeWidth={2}
-              strokeDasharray="5 5"
+              dot={false}
             />
           </LineChart>
         </ResponsiveContainer>
       </Card>
 
-      {/* Crop Yield Prediction */}
+      {/* Temperature chart */}
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-6">
           <TrendingUp className="w-5 h-5 text-accent" />
-          <h2 className="font-semibold text-lg">Expected Crop Yield (Tons)</h2>
+          <h2 className="font-semibold text-lg">Temperature (Realtime)</h2>
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={yieldPrediction}>
+          <LineChart data={temperatureData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" />
+            <XAxis dataKey="time" />
             <YAxis />
             <Tooltip />
-            <Area
+            <Line
               type="monotone"
-              dataKey="yield"
-              fill="hsl(var(--color-accent))"
-              stroke="hsl(var(--color-accent))"
+              dataKey="temperature"
+              stroke="#ef4444"
+              strokeWidth={2}
+              dot={false}
             />
-          </AreaChart>
+          </LineChart>
         </ResponsiveContainer>
       </Card>
 
-      {/* Predict form + history (modern UI) */}
+      {/* Manual predict form + history — keep existing form markup but data may come from local state */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <Card className="p-6 col-span-1 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">

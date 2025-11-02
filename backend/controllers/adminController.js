@@ -1,5 +1,6 @@
 const adminSdk = require('firebase-admin');
 const User = require('../models/userModel');
+const Farm = require('../models/farmModel');
 
 // helper: admin roles
 const isAdminRole = (role) => ['admin', 'superadmin'].includes(role);
@@ -139,16 +140,120 @@ exports.listUsers = async (req, res) => {
       .skip(skip)
       .limit(Number(limit));
     const total = await User.countDocuments(filter);
-    return res
-      .status(200)
-      .json({
-        status: 'success',
-        results: users.length,
-        total,
-        data: { users },
-      });
+    return res.status(200).json({
+      status: 'success',
+      results: users.length,
+      total,
+      data: { users },
+    });
   } catch (err) {
     console.error('listUsers error:', err && err.message);
+    return res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+};
+
+// Admin: list farms (pagination & optional search by name/location)
+exports.listFarmers = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, q } = req.query;
+    const filter = {};
+    if (q) {
+      const re = new RegExp(String(q), 'i');
+      filter.$or = [{ name: re }, { email: re }];
+    }
+    const skip = (Math.max(1, Number(page)) - 1) * Number(limit);
+    const users = await User.find(filter)
+      .select('-password')
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
+    const total = await User.countDocuments(filter);
+    return res.status(200).json({
+      status: 'success',
+      results: users.length,
+      total,
+      data: { users },
+    });
+  } catch (err) {
+    console.error('listFarmers error:', err && err.message);
+    return res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+};
+
+// ------------------- UPDATED: list only regular users (role === 'user') -------------------
+exports.listRegularUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, q } = req.query;
+    const filter = { role: 'user' };
+    if (q) {
+      const re = new RegExp(String(q), 'i');
+      filter.$or = [{ name: re }, { email: re }];
+    }
+    const skip = (Math.max(1, Number(page)) - 1) * Number(limit);
+
+    // Fetch users (no reliance on User.farms array)
+    const users = await User.find(filter)
+      .select('-password')
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
+
+    // If no users return early
+    if (!Array.isArray(users) || users.length === 0) {
+      const totalEmpty = await User.countDocuments({ role: 'user' });
+      return res.status(200).json({
+        status: 'success',
+        results: 0,
+        total: totalEmpty,
+        data: { users: [] },
+      });
+    }
+
+    // Collect user ids and fetch farms owned by them
+    const userIds = users.map((u) => u._id);
+    const farms = await Farm.find({ owner: { $in: userIds } })
+      .select('owner location size litresSaved status')
+      .lean();
+
+    // Group farms by owner id
+    const farmsByOwner = farms.reduce((acc, f) => {
+      const oid = String(f.owner);
+      if (!acc[oid]) acc[oid] = [];
+      acc[oid].push(f);
+      return acc;
+    }, {});
+
+    // compute additional lightweight summary fields per user using grouped farms
+    const mapped = users.map((u) => {
+      const uid = String(u._id);
+      const owned = farmsByOwner[uid] || [];
+      const farmsCount = owned.length;
+      const totalLitresSaved = owned.reduce(
+        (acc, f) =>
+          acc + (f && typeof f.litresSaved === 'number' ? f.litresSaved : 0),
+        0
+      );
+      const primaryLocation =
+        owned.length > 0 && owned[0].location
+          ? owned[0].location
+          : u.location || '—';
+      return {
+        ...u,
+        farmsCount,
+        totalLitresSaved,
+        primaryLocation,
+      };
+    });
+
+    const total = await User.countDocuments(filter);
+    return res.status(200).json({
+      status: 'success',
+      results: mapped.length,
+      total,
+      data: { users: mapped },
+    });
+  } catch (err) {
+    console.error('listRegularUsers error:', err && err.message);
     return res.status(500).json({ status: 'error', message: 'Server error' });
   }
 };

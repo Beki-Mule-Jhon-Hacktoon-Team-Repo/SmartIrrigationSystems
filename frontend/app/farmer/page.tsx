@@ -41,6 +41,14 @@ const INITIAL_TEMPERATURE = [
   { time: "16:00", temperature: 22 },
 ];
 
+// Use the realtime singleton manager to keep socket alive across pages
+import {
+  init as initRealtime,
+  subscribe as subscribeRealtime,
+  setDeviceId as realtimeSetDeviceId,
+  getState as realtimeGetState,
+} from "@/lib/realtime";
+
 export default function FarmerDashboard() {
   // Config: adjust for your environment
   const SOCKET_URL =
@@ -75,6 +83,40 @@ export default function FarmerDashboard() {
     }
   }, []);
 
+  // initialize and subscribe to global realtime manager
+  useEffect(() => {
+    let unsub: (() => void) | null = null;
+    (async () => {
+      await initRealtime({ socketUrl: SOCKET_URL });
+      // subscribe to updates
+      unsub = subscribeRealtime((s: any) => {
+        // update local UI state from global state
+        if (s.latest) {
+          setLatest({
+            temperature: s.latest.temperature ?? null,
+            humidity: s.latest.humidity ?? null,
+            soil: s.latest.soil ?? null,
+            ph: s.latest.ph ?? null,
+            npk: s.latest.npk ?? null,
+            pump: s.latest.pump ?? null,
+            receivedAt: s.latest.receivedAt ?? null,
+          });
+        }
+        if (Array.isArray(s.moistureData)) setMoistureData(s.moistureData);
+        if (Array.isArray(s.temperatureData))
+          setTemperatureData(s.temperatureData);
+        // keep connection flag
+        setConnected(Boolean(s.connected));
+      });
+    })();
+
+    return () => {
+      // do not disconnect the global socket; just unsubscribe
+      if (unsub) unsub();
+    };
+  }, [SOCKET_URL]);
+
+  // when user saves/join device, inform global manager
   const saveAndJoin = (id: string) => {
     if (!id) return;
     setDeviceId(id);
@@ -82,10 +124,9 @@ export default function FarmerDashboard() {
       localStorage.setItem("deviceId", id);
     } catch (e) {}
     setShowDeviceModal(false);
-    // emit join if socket already connected
+    // emit join via global manager
     try {
-      const s = socketRef.current;
-      if (s && s.connected) s.emit("join-device", id);
+      realtimeSetDeviceId(id);
     } catch (e) {}
   };
 
@@ -267,134 +308,15 @@ export default function FarmerDashboard() {
   });
   const [connected, setConnected] = useState(false);
 
-  // socket ref to persist between renders
-  const socketRef = useRef<any>(null);
-
+  // when deviceId changes, inform the global realtime manager to join the device
   useEffect(() => {
-    // import dynamically so server-side build doesn't break
-    let mounted = true;
-    (async () => {
-      const { io } = await import("socket.io-client");
-      if (!mounted) return;
-      const socket = io(SOCKET_URL, {
-        transports: ["websocket"],
-        autoConnect: true,
-      });
-      socketRef.current = socket;
-
-      socket.on("connect", () => {
-        setConnected(true);
-        // join the device room so server will emit to this client (if deviceId set)
-        if (deviceId) socket.emit("join-device", deviceId);
-      });
-      socket.on("disconnect", () => setConnected(false));
-
-      // also join when deviceId changes and socket already connected
-      // (note: this effect does not depend on deviceId; we handle join in a separate useEffect)
-
-      // Listen for device-data (server emits 'device-data' for a device room)
-      socket.on("device-data", (payload: any) => {
-        if (!payload) return;
-        // Map incoming payload to our UI fields. prefer payload.soil for moisture percentage
-        const soilVal =
-          typeof payload.soil === "number"
-            ? payload.soil
-            : payload.soilMoisture || null;
-        const temp =
-          typeof payload.temperature === "number" ? payload.temperature : null;
-        const hum =
-          typeof payload.humidity === "number" ? payload.humidity : null;
-        const ph = typeof payload.ph === "number" ? payload.ph : null;
-        const npk = typeof payload.npk === "number" ? payload.npk : null;
-        // parse pump: accept 1/0, "1"/"0", true/false
-        let pumpVal: number | null = null;
-        if (payload.pump !== undefined && payload.pump !== null) {
-          if (typeof payload.pump === "number")
-            pumpVal = payload.pump === 1 ? 1 : payload.pump === 0 ? 0 : null;
-          else if (typeof payload.pump === "boolean")
-            pumpVal = payload.pump ? 1 : 0;
-          else if (typeof payload.pump === "string") {
-            const s = payload.pump.trim().toLowerCase();
-            if (s === "1" || s === "true") pumpVal = 1;
-            else if (s === "0" || s === "false") pumpVal = 0;
-          }
-        }
-        const receivedAt = payload.receivedAt
-          ? new Date(payload.receivedAt).toLocaleTimeString()
-          : new Date().toLocaleTimeString();
-
-        setLatest({
-          temperature: temp,
-          humidity: hum,
-          soil: soilVal,
-          ph,
-          npk,
-          pump: pumpVal,
-          receivedAt,
-        });
-
-        // Update moisture chart: add new point, keep last 20
-        if (typeof soilVal === "number") {
-          const timeLabel = new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          });
-          setMoistureData((prev) => {
-            const next = [
-              ...prev,
-              { time: timeLabel, moisture: Math.round(soilVal) },
-            ];
-            return next.slice(-20);
-          });
-        }
-
-        // Update temperature chart: add new point, keep last 20
-        if (typeof temp === "number") {
-          const timeLabelT = new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          });
-          setTemperatureData((prev) => {
-            const next = [
-              ...prev,
-              { time: timeLabelT, temperature: Number(temp.toFixed(1)) },
-            ];
-            return next.slice(-20);
-          });
-        }
-      });
-
-      // optional: global event 'device-data-all' if you used it
-      socket.on("device-data-all", (d: any) => {
-        // no-op or used for global notifications
-        // console.log("global event", d)
-      });
-    })();
-
-    return () => {
-      mounted = false;
-      const s = socketRef.current;
-      if (s) {
-        try {
-          // leave the device room on disconnect
-          if (deviceId) s.emit("leave-device", deviceId);
-        } catch (e) {}
-        s.disconnect();
-      }
-    };
-  }, [
-    SOCKET_URL /* removed deviceId from deps on purpose to avoid reconnect loops */,
-  ]);
-
-  // when deviceId is set after socket created, emit join
-  useEffect(() => {
-    const s = socketRef.current;
-    if (s && s.connected && deviceId) {
-      s.emit("join-device", deviceId);
+    if (!deviceId) return;
+    try {
+      // global manager will handle socket state and emitting join
+      realtimeSetDeviceId(deviceId);
+    } catch (e) {
+      // ignore errors from manager
     }
-    return () => {};
   }, [deviceId]);
 
   return (
