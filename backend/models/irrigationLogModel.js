@@ -1,23 +1,13 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-const irrigationLogSchema = new mongoose.Schema({
-  sensorId: {
-    type: String,
-    required: true,
+const logSchema = new mongoose.Schema(
+  {
+    deviceId: { type: String, required: true, index: true },
+    action: { type: String, enum: ['start', 'stop'], required: true },
+    triggeredBy: { type: String, enum: ['auto', 'manual', 'ai'], default: 'auto' },
+    meta: { type: Object, default: {} },
   },
-  waterAmount: {
-    type: Number,
-    required: true,
-  },
-  status: {
-    type: String,
-    enum: ["started", "stopped"],
-    default: "started",
-  },
-  timestamp: {
-    type: Date,
-    default: Date.now,
-  },
-});
+  { timestamps: true }
+);
 
-module.exports = mongoose.model("IrrigationLog", irrigationLogSchema);
+module.exports = mongoose.model('IrrigationLog', logSchema);

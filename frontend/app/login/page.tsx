@@ -28,43 +28,120 @@
 //   const dispatch = useAppDispatch();
 //   const router = useRouter();
 
-"use client";
+'use client';
 
-import type React from "react";
+import type React from 'react';
 
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { loginStart, loginSuccess, logout } from "@/store/authSlice";
+import { Navbar } from '@/components/navbar';
+import { Footer } from '@/components/footer';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import Link from 'next/link';
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { loginStart, loginSuccess, logout } from '@/store/authSlice';
 import {
   auth,
   provider,
   signInWithPopup,
   firebaseSignOut,
   onAuthStateChanged,
-} from "@/lib/firebase";
+} from '@/lib/firebase';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const dispatch = useAppDispatch();
   const router = useRouter();
+  // lightweight toast helper (top-right)
+  const showToast = (
+    message: string,
+    opts: { duration?: number; type?: 'info' | 'success' | 'error' } = {}
+  ) => {
+    const { duration = 4000, type = 'info' } = opts;
+    try {
+      const el = document.createElement('div');
+      el.textContent = message;
+      el.style.position = 'fixed';
+      el.style.right = '16px';
+      el.style.top = '24px'; // moved to top
+      el.style.zIndex = '9999';
+      el.style.padding = '10px 14px';
+      el.style.borderRadius = '8px';
+      el.style.color = '#fff';
+      el.style.fontSize = '14px';
+      el.style.boxShadow = '0 6px 18px rgba(0,0,0,0.12)';
+      el.style.opacity = '0';
+      el.style.transition = 'opacity 220ms ease, transform 220ms ease';
+      el.style.transform = 'translateY(-8px)';
+      if (type === 'success') el.style.background = '#16a34a';
+      else if (type === 'error') el.style.background = '#dc2626';
+      else el.style.background = '#2563eb';
+      document.body.appendChild(el);
+      requestAnimationFrame(() => {
+        el.style.opacity = '1';
+        el.style.transform = 'translateY(0)';
+      });
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-8px)';
+        setTimeout(() => el.remove(), 300);
+      }, duration);
+    } catch (e) {
+      console.log('toast:', message);
+    }
+  };
+
+  // controlled form state
+  const [email, setEmail] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
 
   const authState = useAppSelector((s) => s.auth);
 
+  const getApiBase = () =>
+    process.env.NEXT_PUBLIC_API_BASE_URL &&
+    process.env.NEXT_PUBLIC_API_BASE_URL !== ''
+      ? process.env.NEXT_PUBLIC_API_BASE_URL
+      : typeof window !== 'undefined'
+      ? window.location.origin.replace(/:3000$/, ':5001')
+      : 'http://localhost:5001';
+
+  // POST /api/v1/auth/login
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate login delay
-    setTimeout(() => setLoading(false), 1000);
+    dispatch(loginStart());
+    try {
+      const url = `${getApiBase()}/api/v1/auth/login`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: passwordInput }),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(txt || `Login failed (${res.status})`);
+      }
+      const body = await res.json().catch(() => ({}));
+      const user = body?.data?.user || null;
+      const token = body?.token || ''; // ensure idToken always provided (empty string fallback)
+      dispatch(loginSuccess({ user, idToken: token }));
+      showToast('Login successful', { type: 'success' });
+      // redirect according to role
+      if (user?.role === 'admin') router.push('/admin');
+      else router.push('/farmer');
+    } catch (err) {
+      console.error('Login error:', err);
+      showToast('Login failed. Check credentials or server.', {
+        type: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loginWithGoogle = useCallback(async () => {
@@ -74,39 +151,30 @@ export default function LoginPage() {
       const firebaseUser = result.user;
       const idToken = await firebaseUser.getIdToken();
 
-      // build a safe base URL: prefer NEXT_PUBLIC_API_BASE_URL, otherwise use current origin
-      const baseUrl =
-        process.env.NEXT_PUBLIC_API_BASE_URL &&
-        process.env.NEXT_PUBLIC_API_BASE_URL !== ""
-          ? process.env.NEXT_PUBLIC_API_BASE_URL
-          : typeof window !== "undefined"
-          ? window.location.origin
-          : "";
-
-      const url = `http://localhost:5000/api/v1/auth/google`;
+      const url = `${getApiBase()}/api/v1/auth/google`;
 
       // send idToken to backend for server-side verification and user creation
       let res;
       try {
         res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ idToken }),
         });
       } catch (networkErr) {
         console.error(
-          "Network error when calling backend:",
+          'Network error when calling backend:',
           networkErr,
-          "url:",
+          'url:',
           url
         );
         throw networkErr;
       }
 
       if (!res.ok) {
-        const txt = await res.text().catch(() => "(no body)");
-        console.error("Backend returned non-OK status", res.status, txt);
-        throw new Error("Server verification failed");
+        const txt = await res.text().catch(() => '(no body)');
+        console.error('Backend returned non-OK status', res.status, txt);
+        throw new Error('Server verification failed');
       }
 
       const body = await res.json().catch(() => ({}));
@@ -115,21 +183,24 @@ export default function LoginPage() {
         email: firebaseUser.email,
       };
 
-      dispatch(loginSuccess({ user: serverUser, idToken }));
-      console.log("Logged in user:", serverUser);
+      // store authenticated user and idToken in redux (idToken from Firebase)
+      dispatch(loginSuccess({ user: serverUser, idToken: idToken || '' }));
+      showToast('Signed in with Google', { type: 'success' });
+
+      console.log('Logged in user:', serverUser);
       // redirect to /farmers after successful login
-      if (serverUser?.role === "admin") {
-        router.push("/admin");
+      if (serverUser?.role === 'admin') {
+        router.push('/admin');
       }
 
-      if (serverUser?.role === "user") {
-        router.push("/farmer");
+      if (serverUser?.role === 'user') {
+        router.push('/farmer');
       }
 
       console.log(serverUser);
     } catch (err) {
-      console.error("Google login error", err);
-      // optional: dispatch error status or show a toast
+      console.error('Google login error', err);
+      showToast('Google login failed. See console.', { type: 'error' });
     }
   }, [dispatch, router]);
 
@@ -141,23 +212,23 @@ export default function LoginPage() {
           const idToken = await u.getIdToken();
 
           // Try to fetch the canonical server user (so we have role and other DB fields)
-          const url = `http://localhost:5000/api/v1/auth/google`;
+          const url = `${getApiBase()}/api/v1/auth/google`;
           let serverUser = null;
           try {
             const resp = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ idToken }),
             });
             if (resp.ok) {
               const body = await resp.json().catch(() => ({}));
               serverUser = body?.data?.user || null;
             } else {
-              console.warn("Auth verify returned non-OK", resp.status);
+              console.warn('Auth verify returned non-OK', resp.status);
             }
           } catch (e) {
             console.warn(
-              "Could not reach auth endpoint to hydrate server user:",
+              'Could not reach auth endpoint to hydrate server user:',
               e
             );
           }
@@ -168,9 +239,10 @@ export default function LoginPage() {
             picture: u.photoURL,
           };
 
-          dispatch(loginSuccess({ user, idToken }));
+          // ensure idToken string stored (fallback to empty string)
+          dispatch(loginSuccess({ user, idToken: idToken || '' }));
         } catch (e) {
-          console.error("onAuthStateChanged handler failed:", e);
+          console.error('onAuthStateChanged handler failed:', e);
         }
       } else {
         dispatch(logout());
@@ -235,6 +307,8 @@ export default function LoginPage() {
                 placeholder="you@example.com"
                 required
                 className="bg-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
@@ -243,10 +317,12 @@ export default function LoginPage() {
               <div className="relative">
                 <Input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
                   required
                   className="bg-input pr-10"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
                 />
                 <button
                   type="button"
@@ -279,13 +355,13 @@ export default function LoginPage() {
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm">
             <p className="text-muted-foreground">
-              Don't have an account?{" "}
+              Don't have an account?{' '}
               <Link
                 href="/register"
                 className="text-primary font-semibold hover:underline"
