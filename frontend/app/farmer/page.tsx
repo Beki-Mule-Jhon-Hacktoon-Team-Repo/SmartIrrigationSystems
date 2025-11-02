@@ -46,6 +46,10 @@ export default function FarmerDashboard() {
   const SOCKET_URL =
     process.env.NEXT_PUBLIC_SOCKET_URL ||
     "https://smartirrigationsystems.onrender.com";
+
+  // API base (use explicit API url if provided, otherwise fallback to socket url)
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || SOCKET_URL;
+
   // deviceId is chosen by the user via modal or loaded from localStorage
   const [deviceId, setDeviceId] = useState<string>("");
   const [showDeviceModal, setShowDeviceModal] = useState<boolean>(false);
@@ -172,6 +176,85 @@ export default function FarmerDashboard() {
   // state for charts / stats
   const [moistureData, setMoistureData] = useState(INITIAL_MOISTURE);
   const [temperatureData, setTemperatureData] = useState(INITIAL_TEMPERATURE);
+
+  // Prediction form + history
+  const [predictForm, setPredictForm] = useState({
+    temperature: "",
+    humidity: "",
+    soil: "",
+    ph: "",
+    npk: "",
+  });
+  const [predicting, setPredicting] = useState(false);
+  const [latestPrediction, setLatestPrediction] = useState<any | null>(null);
+  const [predictHistory, setPredictHistory] = useState<any[]>([]);
+
+  // load prediction history from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("predictHistory");
+      if (raw) setPredictHistory(JSON.parse(raw));
+    } catch (e) {}
+  }, []);
+
+  const saveHistory = (entry: any) => {
+    try {
+      const next = [entry, ...predictHistory].slice(0, 50);
+      setPredictHistory(next);
+      localStorage.setItem("predictHistory", JSON.stringify(next));
+    } catch (e) {}
+  };
+
+  // submit prediction to API
+  const submitPredict = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    // basic conversion
+    const payload = {
+      temperature: Number(predictForm.temperature),
+      humidity: Number(predictForm.humidity),
+      soil: Number(predictForm.soil),
+      ph: Number(predictForm.ph),
+      npk: Number(predictForm.npk),
+    };
+    // validate
+    if (
+      [
+        payload.temperature,
+        payload.humidity,
+        payload.soil,
+        payload.ph,
+        payload.npk,
+      ].some((v) => Number.isNaN(v))
+    ) {
+      alert("Please enter valid numeric values for all fields.");
+      return;
+    }
+
+    setPredicting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/predict`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      const entry = {
+        id: Date.now(),
+        deviceId: deviceId || null,
+        input: payload,
+        response: data,
+        createdAt: new Date().toISOString(),
+      };
+      setLatestPrediction(entry);
+      saveHistory(entry);
+      // optional: reset form or keep values
+    } catch (err) {
+      console.error("Predict request failed", err);
+      alert("Prediction request failed. Check server and network.");
+    } finally {
+      setPredicting(false);
+    }
+  };
 
   const [latest, setLatest] = useState({
     temperature: null as number | null,
@@ -523,6 +606,196 @@ export default function FarmerDashboard() {
               />
             </LineChart>
           </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* Predict form + history */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="p-6 col-span-1 lg:col-span-2">
+          <h2 className="font-semibold text-lg mb-4">
+            Crop & Water Prediction
+          </h2>
+          <form onSubmit={submitPredict} className="grid grid-cols-2 gap-3">
+            <label className="col-span-1">
+              <div className="text-sm text-muted-foreground">
+                Temperature (°C)
+              </div>
+              <input
+                type="number"
+                step="0.1"
+                className="w-full mt-1 p-2 border rounded"
+                value={predictForm.temperature}
+                onChange={(e) =>
+                  setPredictForm({
+                    ...predictForm,
+                    temperature: e.target.value,
+                  })
+                }
+                required
+              />
+            </label>
+            <label className="col-span-1">
+              <div className="text-sm text-muted-foreground">Humidity (%)</div>
+              <input
+                type="number"
+                step="0.1"
+                className="w-full mt-1 p-2 border rounded"
+                value={predictForm.humidity}
+                onChange={(e) =>
+                  setPredictForm({ ...predictForm, humidity: e.target.value })
+                }
+                required
+              />
+            </label>
+            <label className="col-span-1">
+              <div className="text-sm text-muted-foreground">Soil (%)</div>
+              <input
+                type="number"
+                step="0.1"
+                className="w-full mt-1 p-2 border rounded"
+                value={predictForm.soil}
+                onChange={(e) =>
+                  setPredictForm({ ...predictForm, soil: e.target.value })
+                }
+                required
+              />
+            </label>
+            <label className="col-span-1">
+              <div className="text-sm text-muted-foreground">pH</div>
+              <input
+                type="number"
+                step="0.1"
+                className="w-full mt-1 p-2 border rounded"
+                value={predictForm.ph}
+                onChange={(e) =>
+                  setPredictForm({ ...predictForm, ph: e.target.value })
+                }
+                required
+              />
+            </label>
+            <label className="col-span-1">
+              <div className="text-sm text-muted-foreground">NPK</div>
+              <input
+                type="number"
+                step="1"
+                className="w-full mt-1 p-2 border rounded"
+                value={predictForm.npk}
+                onChange={(e) =>
+                  setPredictForm({ ...predictForm, npk: e.target.value })
+                }
+                required
+              />
+            </label>
+            <div className="col-span-2 flex gap-2 items-center mt-2">
+              <button
+                type="submit"
+                disabled={predicting}
+                className="px-4 py-2 bg-primary text-white rounded disabled:opacity-60"
+              >
+                {predicting ? "Predicting..." : "Predict"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPredictForm({
+                    temperature: "",
+                    humidity: "",
+                    soil: "",
+                    ph: "",
+                    npk: "",
+                  });
+                }}
+                className="px-4 py-2 border rounded"
+              >
+                Clear
+              </button>
+              <div className="ml-auto text-sm text-muted-foreground">
+                {latestPrediction
+                  ? `Last: ${new Date(
+                      latestPrediction.createdAt
+                    ).toLocaleString()}`
+                  : ""}
+              </div>
+            </div>
+          </form>
+
+          {/* Latest prediction result */}
+          {latestPrediction && (
+            <div className="mt-4 p-4 bg-muted/30 rounded">
+              <div className="font-medium">Latest prediction</div>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  Crop:{" "}
+                  <strong>
+                    {latestPrediction.response?.predicted_crop || "—"}
+                  </strong>
+                </div>
+                <div>
+                  Water need:{" "}
+                  <strong>
+                    {typeof latestPrediction.response?.predicted_water_need ===
+                    "number"
+                      ? latestPrediction.response.predicted_water_need.toFixed(
+                          2
+                        )
+                      : latestPrediction.response?.predicted_water_need ?? "—"}
+                  </strong>
+                </div>
+                <div>
+                  Status:{" "}
+                  <strong>{latestPrediction.response?.status ?? "—"}</strong>
+                </div>
+                <div>
+                  Device: <strong>{latestPrediction.deviceId || "—"}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* History column */}
+        <Card className="p-6">
+          <h3 className="font-semibold mb-3">Prediction History</h3>
+          {predictHistory.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              No predictions yet.
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[420px] overflow-auto">
+              {predictHistory.map((h) => (
+                <div key={h.id} className="p-3 border rounded">
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(h.createdAt).toLocaleString()}
+                  </div>
+                  <div className="mt-1 text-sm">
+                    <div>
+                      Crop: <strong>{h.response?.predicted_crop || "—"}</strong>
+                    </div>
+                    <div>
+                      Water:{" "}
+                      <strong>
+                        {typeof h.response?.predicted_water_need === "number"
+                          ? h.response.predicted_water_need.toFixed(2)
+                          : h.response?.predicted_water_need ?? "—"}
+                      </strong>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Status: {h.response?.status ?? "—"}
+                    </div>
+                  </div>
+                  <details className="mt-2 text-xs text-muted-foreground">
+                    <summary className="cursor-pointer">Inputs</summary>
+                    <pre className="text-xs mt-1">
+                      {JSON.stringify(h.input, null, 2)}
+                    </pre>
+                    <pre className="text-xs mt-1">
+                      Response: {JSON.stringify(h.response)}
+                    </pre>
+                  </details>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 
