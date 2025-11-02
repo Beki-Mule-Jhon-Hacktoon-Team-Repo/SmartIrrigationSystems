@@ -11,7 +11,8 @@ const authRoutes = require('./routes/auth');
 const sensorRoutes = require('./routes/sensorRoutes');
 const weatherRoutes = require('./routes/weatherRoutes');
 const irrigationRoutes = require('./routes/irrigationRoutes');
-const deviceRoutes=require('./routes/deviceRoutes')
+const adminRoutes = require('./routes/adminRoutes'); // <<< add this require
+const deviceRoutes = require('./routes/deviceRoutes');
 // Socket.IO (real-time) — accept Arduino data, save to DB, broadcast to clients
 const { Server } = require('socket.io');
 const Sensor = require('./models/sensorModel');
@@ -164,8 +165,6 @@ app.get('/api/v1/auth/profile', verifyFirebaseToken, (req, res) => {
   });
 });
 
-
-
 const io = new Server(server, { cors: { origin: '*' } });
 
 io.on('connection', (socket) => {
@@ -193,6 +192,7 @@ io.on('connection', (socket) => {
 app.use('/api/v1/sensor', sensorRoutes);
 app.use('/api/v1/weather', weatherRoutes);
 app.use('/api/v1/irrigation', irrigationRoutes);
+app.use('/api/v1/admin', adminRoutes); // <<< mount admin routes
 app.use('/api/v1/device', deviceRoutes);
 // Mount auth routes (ensure this is after special auth endpoints so /profile isn't captured by /:id)
 app.use('/api/v1/auth', authRoutes);
