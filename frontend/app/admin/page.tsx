@@ -20,19 +20,19 @@ import { Provider } from "react-redux";
 import { store } from "@/store";
 
 const platformData = [
-  { month: "Jan", farmers: 120, farms: 280 },
-  { month: "Feb", farmers: 145, farms: 310 },
-  { month: "Mar", farmers: 168, farms: 340 },
-  { month: "Apr", farmers: 192, farms: 385 },
-  { month: "May", farmers: 215, farms: 420 },
+  { month: "Jan", farmers: 8, farms: 12 },
+  { month: "Feb", farmers: 10, farms: 15 },
+  { month: "Mar", farmers: 11, farms: 18 },
+  { month: "Apr", farmers: 12, farms: 20 },
+  { month: "May", farmers: 14, farms: 23 },
 ];
 
 const waterSavingsData = [
-  { name: "Saved", value: 2850000 },
-  { name: "Target", value: 3000000 },
+  { name: "Saved", value: 150000 },
+  { name: "Target", value: 240000 },
 ];
 
-const COLORS = ["hsl(var(--color-primary))", "hsl(var(--color-accent))"];
+const COLORS = ["#3b82f6", "#8b5cf6"];
 
 export default function AdminOverview() {
   return (
@@ -47,7 +47,7 @@ export default function AdminOverview() {
 
       {/* Alert */}
       <Card className="p-4 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 flex gap-3">
-        <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+        <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
         <div>
           <p className="font-semibold text-blue-900 dark:text-blue-100">
             System Update
@@ -64,7 +64,7 @@ export default function AdminOverview() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Active Farmers</p>
-              <p className="text-3xl font-bold">215</p>
+              <p className="text-3xl font-bold">14</p>
               <p className="text-xs text-green-600 mt-1">+12% this month</p>
             </div>
             <Users className="w-10 h-10 text-primary/30" />
@@ -75,7 +75,7 @@ export default function AdminOverview() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Active Farms</p>
-              <p className="text-3xl font-bold">420</p>
+              <p className="text-3xl font-bold">23</p>
               <p className="text-xs text-green-600 mt-1">+9% this month</p>
             </div>
             <MapPin className="w-10 h-10 text-accent/30" />
@@ -86,8 +86,8 @@ export default function AdminOverview() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Water Saved</p>
-              <p className="text-3xl font-bold">2.8M L</p>
-              <p className="text-xs text-green-600 mt-1">95% of target</p>
+              <p className="text-3xl font-bold">150k L</p>
+              <p className="text-xs text-green-600 mt-1">63% of target</p>
             </div>
             <Droplets className="w-10 h-10 text-blue-500/30" />
           </div>
@@ -97,7 +97,7 @@ export default function AdminOverview() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Avg Efficiency</p>
-              <p className="text-3xl font-bold">87%</p>
+              <p className="text-3xl font-bold">75%</p>
               <p className="text-xs text-green-600 mt-1">
                 ↑ 3% from last month
               </p>
@@ -122,16 +122,18 @@ export default function AdminOverview() {
               <Line
                 type="monotone"
                 dataKey="farmers"
-                stroke="hsl(var(--color-primary))"
+                stroke="#3b82f6"
                 strokeWidth={2}
                 name="Farmers"
+                dot={false}
               />
               <Line
                 type="monotone"
                 dataKey="farms"
-                stroke="hsl(var(--color-accent))"
+                stroke="#8b5cf6"
                 strokeWidth={2}
                 name="Farms"
+                dot={false}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -161,7 +163,7 @@ export default function AdminOverview() {
             </PieChart>
           </ResponsiveContainer>
           <p className="text-center text-sm text-muted-foreground mt-4">
-            2.85M / 3M Liters (95%)
+            150k / 240k Liters (63%)
           </p>
         </Card>
       </div>
@@ -172,13 +174,13 @@ export default function AdminOverview() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
             <p className="text-sm text-muted-foreground mb-1">API Uptime</p>
-            <p className="text-2xl font-bold text-green-600">99.9%</p>
+            <p className="text-2xl font-bold text-green-600">98.5%</p>
           </div>
           <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
             <p className="text-sm text-muted-foreground mb-1">
               Avg Response Time
             </p>
-            <p className="text-2xl font-bold text-green-600">145ms</p>
+            <p className="text-2xl font-bold text-green-600">195ms</p>
           </div>
           <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
             <p className="text-sm text-muted-foreground mb-1">Active Alerts</p>

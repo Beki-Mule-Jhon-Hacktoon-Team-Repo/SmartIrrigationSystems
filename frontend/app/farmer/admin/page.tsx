@@ -17,16 +17,16 @@ import {
 import { Users, MapPin, Droplets, TrendingUp, AlertCircle } from "lucide-react"
 
 const platformData = [
-  { month: "Jan", farmers: 120, farms: 280 },
-  { month: "Feb", farmers: 145, farms: 310 },
-  { month: "Mar", farmers: 168, farms: 340 },
-  { month: "Apr", farmers: 192, farms: 385 },
-  { month: "May", farmers: 215, farms: 420 },
+  { month: "Jan", farmers: 45, farms: 105 },
+  { month: "Feb", farmers: 52, farms: 118 },
+  { month: "Mar", farmers: 62, farms: 130 },
+  { month: "Apr", farmers: 72, farms: 145 },
+  { month: "May", farmers: 85, farms: 165 },
 ]
 
 const waterSavingsData = [
-  { name: "Saved", value: 2850000 },
-  { name: "Target", value: 3000000 },
+  { name: "Saved", value: 1100000 },
+  { name: "Target", value: 1200000 },
 ]
 
 const COLORS = ["hsl(var(--color-primary))", "hsl(var(--color-accent))"]
@@ -55,7 +55,7 @@ export default function AdminOverview() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Active Farmers</p>
-              <p className="text-3xl font-bold">215</p>
+              <p className="text-3xl font-bold">85</p>
               <p className="text-xs text-green-600 mt-1">+12% this month</p>
             </div>
             <Users className="w-10 h-10 text-primary/30" />
@@ -66,7 +66,7 @@ export default function AdminOverview() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Active Farms</p>
-              <p className="text-3xl font-bold">420</p>
+              <p className="text-3xl font-bold">165</p>
               <p className="text-xs text-green-600 mt-1">+9% this month</p>
             </div>
             <MapPin className="w-10 h-10 text-accent/30" />
@@ -77,8 +77,8 @@ export default function AdminOverview() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Water Saved</p>
-              <p className="text-3xl font-bold">2.8M L</p>
-              <p className="text-xs text-green-600 mt-1">95% of target</p>
+              <p className="text-3xl font-bold">1.1M L</p>
+              <p className="text-xs text-green-600 mt-1">92% of target</p>
             </div>
             <Droplets className="w-10 h-10 text-blue-500/30" />
           </div>
@@ -88,7 +88,7 @@ export default function AdminOverview() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Avg Efficiency</p>
-              <p className="text-3xl font-bold">87%</p>
+              <p className="text-3xl font-bold">75%</p>
               <p className="text-xs text-green-600 mt-1">↑ 3% from last month</p>
             </div>
             <TrendingUp className="w-10 h-10 text-green-500/30" />
@@ -133,7 +133,7 @@ export default function AdminOverview() {
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
-          <p className="text-center text-sm text-muted-foreground mt-4">2.85M / 3M Liters (95%)</p>
+          <p className="text-center text-sm text-muted-foreground mt-4">1.1M / 1.2M Liters (92%)</p>
         </Card>
       </div>
 
@@ -143,11 +143,11 @@ export default function AdminOverview() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
             <p className="text-sm text-muted-foreground mb-1">API Uptime</p>
-            <p className="text-2xl font-bold text-green-600">99.9%</p>
+            <p className="text-2xl font-bold text-green-600">98.5%</p>
           </div>
           <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
             <p className="text-sm text-muted-foreground mb-1">Avg Response Time</p>
-            <p className="text-2xl font-bold text-green-600">145ms</p>
+            <p className="text-2xl font-bold text-green-600">195ms</p>
           </div>
           <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
             <p className="text-sm text-muted-foreground mb-1">Active Alerts</p>

@@ -366,7 +366,7 @@ export default function PredictionsPage() {
             <Line
               type="monotone"
               dataKey="moisture"
-              stroke="hsl(var(--color-primary))"
+              stroke="#3b82f6"
               strokeWidth={2}
               dot={false}
             />

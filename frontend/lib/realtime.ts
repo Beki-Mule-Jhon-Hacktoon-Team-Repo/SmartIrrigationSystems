@@ -97,6 +97,12 @@ export async function init(options?: { socketUrl?: string }) {
         typeof payload.humidity === "number" ? payload.humidity : null;
       const ph = typeof payload.ph === "number" ? payload.ph : null;
       const npk = typeof payload.npk === "number" ? payload.npk : null;
+      // Extract pump value (accepts 1/0, "1"/"0", boolean)
+      const pump = payload.pump !== undefined 
+        ? (payload.pump === 1 || payload.pump === "1" || payload.pump === true ? 1 : 0)
+        : (payload.pumpStatus !== undefined
+          ? (payload.pumpStatus === 1 || payload.pumpStatus === "1" || payload.pumpStatus === true ? 1 : 0)
+          : null);
       const receivedAt = payload.receivedAt
         ? new Date(payload.receivedAt).toLocaleTimeString()
         : new Date().toLocaleTimeString();
@@ -107,6 +113,7 @@ export async function init(options?: { socketUrl?: string }) {
         soil: soilVal,
         ph,
         npk,
+        pump,
         receivedAt,
       };
 
@@ -143,16 +150,26 @@ export async function init(options?: { socketUrl?: string }) {
       const soilVal =
         typeof rec.soil === "number" ? rec.soil : rec.soilMoisture ?? null;
       const temp = typeof rec.temperature === "number" ? rec.temperature : null;
+      const hum = typeof rec.humidity === "number" ? rec.humidity : null;
+      const ph = typeof rec.ph === "number" ? rec.ph : null;
+      const npk = typeof rec.npk === "number" ? rec.npk : null;
+      // Extract pump value (accepts 1/0, "1"/"0", boolean)
+      const pump = rec.pump !== undefined 
+        ? (rec.pump === 1 || rec.pump === "1" || rec.pump === true ? 1 : 0)
+        : (rec.pumpStatus !== undefined
+          ? (rec.pumpStatus === 1 || rec.pumpStatus === "1" || rec.pumpStatus === true ? 1 : 0)
+          : null);
       const receivedAt = rec.receivedAt
         ? new Date(rec.receivedAt).toLocaleTimeString()
         : new Date().toLocaleTimeString();
 
       state.latest = {
         temperature: temp,
-        humidity: rec.humidity,
+        humidity: hum,
         soil: soilVal,
-        ph: rec.ph,
-        npk: rec.npk,
+        ph,
+        npk,
+        pump,
         receivedAt,
       };
 

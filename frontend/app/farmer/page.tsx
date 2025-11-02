@@ -502,8 +502,9 @@ export default function FarmerDashboard() {
               <Line
                 type="monotone"
                 dataKey="moisture"
-                stroke="hsl(var(--color-primary))"
+                stroke="#3b82f6"
                 strokeWidth={2}
+                dot={false}
               />
             </LineChart>
           </ResponsiveContainer>
