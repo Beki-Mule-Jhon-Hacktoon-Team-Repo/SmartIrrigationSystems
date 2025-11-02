@@ -1,30 +1,27 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
-
-
 const farmRoutes = require('./routes/farmRoutes'); // <<< added
+const authRoutes = require('./routes/auth');
+const sensorRoutes = require('./routes/sensorRoutes');
+const adminRoutes = require('./routes/adminRoutes'); // <<< add this require
+const deviceRoutes = require('./routes/deviceRoutes');
+const blogRoutes = require('./routes/blogRoutes'); // <-- new blog routes
 
-
-const authRoutes = require("./routes/auth");
-const sensorRoutes = require("./routes/sensorRoutes");
-const adminRoutes = require("./routes/adminRoutes"); // <<< add this require
-const deviceRoutes = require("./routes/deviceRoutes");
-const blogRoutes = require("./routes/blogRoutes"); // <-- new blog routes
 // Socket.IO (real-time) — accept Arduino data, save to DB, broadcast to clients
-const Sensor = require("./models/sensorModel");
-const express = require("express");
-const http = require("http");
-const admin = require("firebase-admin");
-const fs = require("fs");
-const path = require("path");
-const cors = require("cors");
-const morgan = require("morgan");
-const { Server } = require("socket.io");
-const { spawn } = require("child_process");
-const weatherRoutes = require("./routes/weatherRoutes");
-const irrigationRoutes = require("./routes/irrigationRoutes");
-const User = require("./models/userModel");
+const Sensor = require('./models/sensorModel');
+const express = require('express');
+const http = require('http');
+const admin = require('firebase-admin');
+const fs = require('fs');
+const path = require('path');
+const cors = require('cors');
+const morgan = require('morgan');
+const { Server } = require('socket.io');
+const { spawn } = require('child_process');
+const weatherRoutes = require('./routes/weatherRoutes');
+const irrigationRoutes = require('./routes/irrigationRoutes');
+const User = require('./models/userModel');
 
 
 // Initialize Firebase Admin if service account available
@@ -406,24 +403,24 @@ app.get('/api/v1/auth/profile', verifyFirebaseToken, (req, res) => {
 
 // const io = new Server(server, { cors: { origin: '*' });
 
-io.on("connection", (socket) => {
-  console.log("Client connected:", socket.id);
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
 
-  socket.on("arduino-data", async (data) => {
+  socket.on('arduino-data', async (data) => {
     try {
       // persist incoming sensor reading
       const sensor = new Sensor(data);
       await sensor.save();
       // broadcast to all connected clients
-      io.emit("sensor-update", data);
+      io.emit('sensor-update', data);
     } catch (err) {
-      console.error("Error saving sensor data:", err && err.message);
-      socket.emit("error", { message: "Failed to save sensor data" });
+      console.error('Error saving sensor data:', err && err.message);
+      socket.emit('error', { message: 'Failed to save sensor data' });
     }
   });
 
-  socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
   });
 });
 
@@ -484,14 +481,13 @@ app.post('/api/v1/auth/register', async (req, res) => {
 
 // mount new API routers (after special auth endpoints)
 
-
 app.use('/api/v1/farm', farmRoutes); // <<< mount public farm endpoints (singular)
-app.use("/api/v1/sensor", sensorRoutes);
-app.use("/api/v1/weather", weatherRoutes);
-app.use("/api/v1/irrigation", irrigationRoutes);
-app.use("/api/v1/admin", adminRoutes); // <<< mount admin routes
-app.use("/api/v1/device", deviceRoutes);
-app.use("/api/v1/blog", blogRoutes); // <-- mount blog API
+app.use('/api/v1/sensor', sensorRoutes);
+app.use('/api/v1/weather', weatherRoutes);
+app.use('/api/v1/irrigation', irrigationRoutes);
+app.use('/api/v1/admin', adminRoutes); // <<< mount admin routes
+app.use('/api/v1/device', deviceRoutes);
+app.use('/api/v1/blog', blogRoutes); // <-- mount blog API
 
 // Mount auth routes (ensure this is after special auth endpoints so /profile isn't captured by /:id)
 app.use('/api/v1/auth', authRoutes);

@@ -27,8 +27,11 @@
 //   const [loading, setLoading] = useState(false);
 //   const dispatch = useAppDispatch();
 //   const router = useRouter();
+'use client';
+
 
 'use client';
+
 
 import type React from 'react';
 
@@ -182,10 +185,16 @@ export default function LoginPage() {
         name: firebaseUser.displayName,
         email: firebaseUser.email,
       };
+      // Prefer server token if returned, otherwise fallback to Firebase idToken
+      const serverToken = body?.token || idToken || '';
+      dispatch(loginSuccess({ user: serverUser, idToken: serverToken || '' }));
+      showToast('Signed in with Google', { type: 'success' });
+
 
       // store authenticated user and idToken in redux (idToken from Firebase)
       dispatch(loginSuccess({ user: serverUser, idToken: idToken || '' }));
       showToast('Signed in with Google', { type: 'success' });
+
 
       console.log('Logged in user:', serverUser);
       // redirect to /farmers after successful login
@@ -223,15 +232,36 @@ export default function LoginPage() {
             if (resp.ok) {
               const body = await resp.json().catch(() => ({}));
               serverUser = body?.data?.user || null;
+              // prefer server token if provided
+              const serverToken = body?.token || idToken || '';
+              const user = serverUser || {
+                name: u.displayName,
+                email: u.email,
+                picture: u.photoURL,
+              };
+              dispatch(loginSuccess({ user, idToken: serverToken || '' }));
             } else {
               console.warn('Auth verify returned non-OK', resp.status);
+              const user = {
+                name: u.displayName,
+                email: u.email,
+                picture: u.photoURL,
+              };
+              dispatch(loginSuccess({ user, idToken: idToken || '' }));
             }
           } catch (e) {
             console.warn(
               'Could not reach auth endpoint to hydrate server user:',
               e
             );
+            const user = {
+              name: u.displayName,
+              email: u.email,
+              picture: u.photoURL,
+            };
+            dispatch(loginSuccess({ user, idToken: idToken || '' }));
           }
+
 
           const user = serverUser || {
             name: u.displayName,
@@ -241,6 +271,7 @@ export default function LoginPage() {
 
           // ensure idToken string stored (fallback to empty string)
           dispatch(loginSuccess({ user, idToken: idToken || '' }));
+
         } catch (e) {
           console.error('onAuthStateChanged handler failed:', e);
         }

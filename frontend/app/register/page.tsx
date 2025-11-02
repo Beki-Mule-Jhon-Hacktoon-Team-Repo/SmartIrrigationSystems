@@ -12,7 +12,12 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Eye, EyeOff, Check, X } from 'lucide-react';
 
+import { useAppDispatch } from '@/store/hooks';
+import { loginSuccess } from '@/store/authSlice';
+
+
 export default function RegisterPage() {
+  const dispatch = useAppDispatch();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [password, setPassword] = useState('');
@@ -94,9 +99,22 @@ export default function RegisterPage() {
         const txt = await res.text().catch(() => '');
         throw new Error(txt || `Register failed (${res.status})`);
       }
-      // success: redirect to login
-      showToast('Account created. Please sign in.', { type: 'success' });
-      window.location.href = '/login';
+
+      const body = await res.json().catch(() => ({}));
+      const user = body?.data?.user || null;
+      const token = body?.token || null;
+      if (user && token) {
+        // store in redux + localStorage (authSlice handles persisting)
+        dispatch(loginSuccess({ user, idToken: token }));
+        showToast('Account created and signed in', { type: 'success' });
+        // redirect according to role
+        if (user?.role === 'admin') window.location.href = '/admin';
+        else window.location.href = '/farmer';
+      } else {
+        showToast('Account created. Please sign in.', { type: 'success' });
+        window.location.href = '/login';
+      }
+
     } catch (err) {
       console.error('Register error:', err);
       showToast('Registration failed. See console.', { type: 'error' });
