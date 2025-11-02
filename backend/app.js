@@ -7,6 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
 const morgan = require("morgan");
+const { Server } = require("socket.io");
 const { spawn } = require("child_process");
 const authRoutes = require("./routes/auth");
 const sensorRoutes = require("./routes/sensors");
@@ -39,12 +40,86 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   console.warn("FIREBASE_SERVICE_ACCOUNT not set – Firebase auth disabled.");
 }
 
-// Create Express app and HTTP server
+// Simple server bootstrap for dev
 const app = express();
-const server = http.createServer(app);
-
-// enable CORS
 app.use(cors());
+app.use(express.json());
+
+// connect to MongoDB if provided
+if (process.env.MONGO_URI) {
+  mongoose
+    .connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    })
+    .then(() => console.log("MongoDB connected"))
+    .catch((err) => console.error("MongoDB connection error:", err));
+}
+
+// create HTTP server and socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] },
+});
+
+// allow clients to join/leave device rooms
+io.on("connection", (socket) => {
+  console.log("socket connected:", socket.id);
+
+  socket.on("join-device", (deviceId) => {
+    if (!deviceId) return;
+    const room = `device:${deviceId}`;
+    socket.join(room);
+    console.log(`${socket.id} joined ${room}`);
+  });
+
+  socket.on("leave-device", (deviceId) => {
+    if (!deviceId) return;
+    const room = `device:${deviceId}`;
+    socket.leave(room);
+    console.log(`${socket.id} left ${room}`);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("socket disconnected:", socket.id);
+  });
+});
+
+// Mount sensor data router (which includes POST /sensor/:deviceId and GET /sensor/:deviceId/test-emit)
+const createSensorDataRouter = require("./routes/sensorDataSocketRoute");
+app.use("/", createSensorDataRouter({ io }));
+
+// New convenience test endpoint registered in app.js
+// GET /test-emit/:deviceId
+// Emits a sample payload to device:<deviceId> and sensor:<sensorId> rooms
+app.get("/test-emit/:deviceId", (req, res) => {
+  const { deviceId } = req.params;
+  const sensorId = req.query.sensorId || deviceId;
+
+  const sample = {
+    deviceId,
+    sensorId,
+    temperature: 25.5,
+    humidity: 55,
+    soil: 40,
+    ph: 6.8,
+    npk: 10,
+    receivedAt: new Date(),
+    meta: { test: true, emittedFrom: "app.js" },
+  };
+
+  const roomDevice = `device:${deviceId}`;
+  const roomSensor = `sensor:${sensorId}`;
+
+  io.to(roomDevice).emit("device-data", sample);
+  io.to(roomSensor).emit("device-data", sample);
+  io.emit("device-data-all", { deviceId, sensorId, data: sample });
+
+  return res.json({ ok: true, emitted: sample });
+});
+
+// basic health route
+app.get("/", (req, res) => res.json({ ok: true }));
 
 // enable morgan in development for request logging
 if (process.env.NODE_ENV === "development") {

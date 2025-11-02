@@ -94,6 +94,13 @@ export function Navbar() {
                         </Button>
                       </Link>
                     )}
+                    {(authState.user as any)?.role === "admin" && (
+                      <Link href="/admin">
+                        <Button size="sm" variant="ghost">
+                          Admin
+                        </Button>
+                      </Link>
+                    )}
                     {authState.user.picture ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img

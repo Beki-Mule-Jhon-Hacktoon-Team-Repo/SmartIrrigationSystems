@@ -1,20 +1,35 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const sensorSchema = new mongoose.Schema(
   {
+    // Link to a User who owns this device/reading (optional)
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+      required: false,
+    },
+
     sensorId: {
       type: String,
-      required: [true, 'Sensor must have an id'],
+      required: [true, "Sensor must have an id"],
       trim: true,
       index: true,
     },
     farmId: {
       type: String,
-      required: [true, 'Sensor reading must belong to a farm'],
+      required: [true, "Sensor reading must belong to a farm"],
       trim: true,
       index: true,
     },
     soilMoisture: {
+      type: Number,
+      min: 0,
+      max: 100,
+      required: false,
+    },
+    // allow a plain 'soil' numeric value commonly used by sensors
+    soil: {
       type: Number,
       min: 0,
       max: 100,
@@ -30,6 +45,20 @@ const sensorSchema = new mongoose.Schema(
       max: 100,
       required: false,
     },
+    // pump state: 0 or 1 or boolean
+    pump: {
+      type: Number,
+      enum: [0, 1],
+      required: false,
+    },
+    ph: {
+      type: Number,
+      required: false,
+    },
+    npk: {
+      type: Number,
+      required: false,
+    },
     battery: {
       type: Number,
       min: 0,
@@ -40,8 +69,8 @@ const sensorSchema = new mongoose.Schema(
     location: {
       type: {
         type: String,
-        enum: ['Point'],
-        default: 'Point',
+        enum: ["Point"],
+        default: "Point",
       },
       coordinates: {
         type: [Number], // [lng, lat]
@@ -49,7 +78,7 @@ const sensorSchema = new mongoose.Schema(
           validator: function (v) {
             return !v || (Array.isArray(v) && v.length === 2);
           },
-          message: 'location.coordinates must be [lng, lat]',
+          message: "location.coordinates must be [lng, lat]",
         },
       },
     },
@@ -75,7 +104,7 @@ const sensorSchema = new mongoose.Schema(
 sensorSchema.index({ farmId: 1, timestamp: -1 });
 
 // 2dsphere index for geo queries if location.coordinates provided
-sensorSchema.index({ location: '2dsphere' });
+sensorSchema.index({ location: "2dsphere" });
 
 // Optional TTL (retain sensor docs for N days) - enable by setting SENSOR_TTL_DAYS in .env
 if (process.env.SENSOR_TTL_DAYS) {
@@ -90,12 +119,12 @@ if (process.env.SENSOR_TTL_DAYS) {
 }
 
 // Remove internal fields from JSON output
-sensorSchema.method('toJSON', function () {
+sensorSchema.method("toJSON", function () {
   const obj = this.toObject();
   delete obj.__v;
   return obj;
 });
 
-const Sensor = mongoose.model('Sensor', sensorSchema);
+const Sensor = mongoose.model("Sensor", sensorSchema);
 
 module.exports = Sensor;
