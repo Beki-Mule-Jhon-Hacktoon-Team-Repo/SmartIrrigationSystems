@@ -144,7 +144,7 @@ export default function PredictionsPage() {
     setPredicting(true);
     try {
       const base = API_BASE ? API_BASE.replace(/\/$/, "") : "";
-      const url = base ? `${base}/predict` : `/predict`;
+      const url = "http:localhost:5000/predict";
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -190,9 +190,8 @@ export default function PredictionsPage() {
     let mounted = true;
     (async () => {
       const { io } = await import("socket.io-client");
-      const socketUrl =
-        process.env.NEXT_PUBLIC_SOCKET_URL ||
-        (typeof window !== "undefined" ? window.location.origin : "");
+      const socketUrl = "https://smartirrigationsystems.onrender.com";
+
       const socket = io(socketUrl, {
         transports: ["websocket"],
         autoConnect: true,
