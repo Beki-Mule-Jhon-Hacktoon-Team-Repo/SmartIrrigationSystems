@@ -7,6 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
 const morgan = require("morgan");
+const { spawn } = require("child_process");
 const authRoutes = require("./routes/auth");
 const sensorRoutes = require("./routes/sensors");
 const weatherRoutes = require("./routes/weatherRoutes");
@@ -197,6 +198,77 @@ app.get("/api/health", (req, res) => {
     firebase: firebaseInitialized ? "enabled" : "disabled",
     timestamp: new Date().toISOString(),
   });
+});
+
+app.post("/predict", (req, res) => {
+  const inputData = req.body;
+  const pyScript = path.join(__dirname, "ai", "predict.py");
+
+  // Spawn python process and pipe JSON to its stdin to avoid writing files
+  const py = spawn("python", [pyScript], { stdio: ["pipe", "pipe", "pipe"] });
+
+  let stdout = "";
+  let stderr = "";
+
+  py.stdout.on("data", (chunk) => {
+    stdout += chunk.toString();
+  });
+
+  py.stderr.on("data", (chunk) => {
+    stderr += chunk.toString();
+  });
+
+  py.on("error", (err) => {
+    console.error("Failed to start Python prediction process:", err);
+    return res
+      .status(500)
+      .json({ error: "Failed to start prediction process" });
+  });
+
+  // Safety timeout: kill python if it takes too long
+  const timeoutMs = 15000; // 15s
+  const timer = setTimeout(() => {
+    try {
+      py.kill();
+    } catch (e) {
+      /* ignore */
+    }
+  }, timeoutMs);
+
+  py.on("close", (code) => {
+    clearTimeout(timer);
+    if (code !== 0) {
+      console.error("Python process exited with code", code, "stderr:", stderr);
+      return res
+        .status(500)
+        .json({ error: "AI Prediction Failed", details: stderr });
+    }
+
+    try {
+      const result = JSON.parse(stdout);
+      return res.json(result);
+    } catch (err) {
+      console.error("Invalid JSON from Python:", stdout, err);
+      return res
+        .status(500)
+        .json({ error: "Invalid response from AI", details: stdout });
+    }
+  });
+
+  // Write input JSON to python stdin
+  try {
+    py.stdin.write(JSON.stringify(inputData));
+    py.stdin.end();
+  } catch (err) {
+    console.error("Failed to write to Python stdin:", err);
+    try {
+      py.kill();
+    } catch (e) {}
+    clearTimeout(timer);
+    return res
+      .status(500)
+      .json({ error: "Failed to send input to prediction process" });
+  }
 });
 
 // Protected route example: returns decoded Firebase token (user info)
