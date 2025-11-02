@@ -29,6 +29,10 @@
 //   const router = useRouter();
 'use client';
 
+
+'use client';
+
+
 import type React from 'react';
 
 import { Navbar } from '@/components/navbar';
@@ -186,6 +190,12 @@ export default function LoginPage() {
       dispatch(loginSuccess({ user: serverUser, idToken: serverToken || '' }));
       showToast('Signed in with Google', { type: 'success' });
 
+
+      // store authenticated user and idToken in redux (idToken from Firebase)
+      dispatch(loginSuccess({ user: serverUser, idToken: idToken || '' }));
+      showToast('Signed in with Google', { type: 'success' });
+
+
       console.log('Logged in user:', serverUser);
       // redirect to /farmers after successful login
       if (serverUser?.role === 'admin') {
@@ -251,6 +261,17 @@ export default function LoginPage() {
             };
             dispatch(loginSuccess({ user, idToken: idToken || '' }));
           }
+
+
+          const user = serverUser || {
+            name: u.displayName,
+            email: u.email,
+            picture: u.photoURL,
+          };
+
+          // ensure idToken string stored (fallback to empty string)
+          dispatch(loginSuccess({ user, idToken: idToken || '' }));
+
         } catch (e) {
           console.error('onAuthStateChanged handler failed:', e);
         }

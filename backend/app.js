@@ -2,12 +2,12 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const farmRoutes = require('./routes/farmRoutes'); // <<< added
-
 const authRoutes = require('./routes/auth');
 const sensorRoutes = require('./routes/sensorRoutes');
 const adminRoutes = require('./routes/adminRoutes'); // <<< add this require
 const deviceRoutes = require('./routes/deviceRoutes');
 const blogRoutes = require('./routes/blogRoutes'); // <-- new blog routes
+
 // Socket.IO (real-time) — accept Arduino data, save to DB, broadcast to clients
 const Sensor = require('./models/sensorModel');
 const express = require('express');
@@ -22,6 +22,7 @@ const { spawn } = require('child_process');
 const weatherRoutes = require('./routes/weatherRoutes');
 const irrigationRoutes = require('./routes/irrigationRoutes');
 const User = require('./models/userModel');
+
 
 // Initialize Firebase Admin if service account available
 let firebaseInitialized = false;

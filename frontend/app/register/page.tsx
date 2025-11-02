@@ -11,8 +11,10 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Eye, EyeOff, Check, X } from 'lucide-react';
+
 import { useAppDispatch } from '@/store/hooks';
 import { loginSuccess } from '@/store/authSlice';
+
 
 export default function RegisterPage() {
   const dispatch = useAppDispatch();
@@ -97,6 +99,7 @@ export default function RegisterPage() {
         const txt = await res.text().catch(() => '');
         throw new Error(txt || `Register failed (${res.status})`);
       }
+
       const body = await res.json().catch(() => ({}));
       const user = body?.data?.user || null;
       const token = body?.token || null;
@@ -111,6 +114,7 @@ export default function RegisterPage() {
         showToast('Account created. Please sign in.', { type: 'success' });
         window.location.href = '/login';
       }
+
     } catch (err) {
       console.error('Register error:', err);
       showToast('Registration failed. See console.', { type: 'error' });
