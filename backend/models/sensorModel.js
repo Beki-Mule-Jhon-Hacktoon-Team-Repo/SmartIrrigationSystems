@@ -57,18 +57,19 @@ const sensorSchema = new mongoose.Schema(
     },
 
     // new fields from SensorData
-
-    pumpStatus: {
-      type: Boolean,
-      default: false,
-
-    // pump state: 0 or 1 or boolean
-    pump: {
-      type: Number,
-      enum: [0, 1],
-      required: false,
-    },
-    ph: {
+    
+        pumpStatus: {
+          type: Boolean,
+          default: false,
+        },
+    
+        // pump state: 0 or 1 or boolean
+        pump: {
+          type: Number,
+          enum: [0, 1],
+          required: false,
+        },
+        ph: {
       type: Number,
       required: false,
     },

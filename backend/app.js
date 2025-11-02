@@ -16,7 +16,6 @@ const cors = require("cors");
 const morgan = require("morgan");
 const { Server } = require("socket.io");
 const { spawn } = require("child_process");
-const authRoutes = require("./routes/auth");
 const weatherRoutes = require("./routes/weatherRoutes");
 const irrigationRoutes = require("./routes/irrigationRoutes");
 const User = require("./models/userModel");
@@ -360,7 +359,7 @@ app.get("/api/v1/auth/profile", verifyFirebaseToken, (req, res) => {
   });
 });
 
-const io = new Server(server, { cors: { origin: '*' } });
+// const io = new Server(server, { cors: { origin: '*' } });
 
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
