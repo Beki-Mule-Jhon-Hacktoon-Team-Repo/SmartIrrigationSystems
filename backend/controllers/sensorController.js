@@ -1,12 +1,128 @@
 const Sensor = require("../models/sensorModel");
+const SensorData = require("../models/sensorDataModel");
+const User = require("../models/userModel");
+const admin = require("firebase-admin");
 
 // Create a sensor reading
 exports.createSensor = async (req, res) => {
   try {
-    const doc = await Sensor.create(req.body);
+    // Normalize incoming payload to expected schema types
+    const body = req.body || {};
+    const sensorData = {};
+
+    // Basic identifiers
+    if (body.sensorId) sensorData.sensorId = String(body.sensorId);
+    if (body.farmId) sensorData.farmId = String(body.farmId);
+
+    // Numeric fields (coerce where possible)
+    const toNum = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : undefined;
+    };
+
+    sensorData.temperature = toNum(body.temperature ?? body.temp ?? null);
+    sensorData.humidity = toNum(body.humidity ?? null);
+    sensorData.soilMoisture = toNum(body.soilMoisture ?? body.soil ?? null);
+    // accept pump as '1'/'0' or boolean
+    if (body.pump !== undefined) {
+      const p =
+        body.pump === true || body.pump === 1 || body.pump === "1" ? 1 : 0;
+      sensorData.pump = p;
+    }
+    sensorData.ph = toNum(body.ph ?? null);
+    sensorData.npk = toNum(body.npk ?? body.NPK ?? null);
+
+    // Attach owner automatically if Authorization header present and Firebase Admin initialized
+    try {
+      const authHeader = req.headers.authorization || "";
+      const m = authHeader.match(/^Bearer\s+(.+)$/i);
+      if (m && admin?.apps?.length > 0) {
+        const idToken = m[1];
+        const decoded = await admin
+          .auth()
+          .verifyIdToken(idToken)
+          .catch(() => null);
+        if (decoded && decoded.uid) {
+          const localUser = await User.findOne({
+            firebaseUid: decoded.uid,
+          }).select("_id");
+          if (localUser) sensorData.owner = localUser._id;
+        }
+      }
+    } catch (e) {
+      // ignore owner attach errors
+      console.warn("Could not attach owner to sensor data:", e && e.message);
+    }
+
+    // Timestamp if provided
+    if (body.timestamp) sensorData.timestamp = new Date(body.timestamp);
+
+    // meta - store the raw payload for debugging
+    sensorData.meta = Object.assign({}, body.meta || {}, { raw: body });
+
+    const doc = await Sensor.create(sensorData);
     return res.status(201).json({ status: "success", data: { sensor: doc } });
   } catch (err) {
     console.error("createSensor error:", err && err.message);
+    return res
+      .status(400)
+      .json({ status: "fail", message: err && err.message });
+  }
+};
+
+// Create a sensor telemetry record (separate model)
+exports.createSensorData = async (req, res) => {
+  try {
+    const body = req.body || {};
+    const data = {};
+    if (req.params && req.params.deviceId)
+      data.sensorId = String(req.params.deviceId);
+    if (body.farmId) data.farmId = String(body.farmId);
+
+    const toNum = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : undefined;
+    };
+
+    data.temperature = toNum(body.temperature ?? body.temp ?? null);
+    data.humidity = toNum(body.humidity ?? null);
+    data.soil = toNum(body.soil ?? body.soilMoisture ?? null);
+    if (body.pump !== undefined)
+      data.pump =
+        body.pump === true || body.pump === 1 || body.pump === "1" ? 1 : 0;
+    data.ph = toNum(body.ph ?? null);
+    data.npk = toNum(body.npk ?? body.NPK ?? null);
+
+    // Attach owner if possible
+    try {
+      const authHeader = req.headers.authorization || "";
+      const m = authHeader.match(/^Bearer\s+(.+)$/i);
+      if (m && admin?.apps?.length > 0) {
+        const idToken = m[1];
+        const decoded = await admin
+          .auth()
+          .verifyIdToken(idToken)
+          .catch(() => null);
+        if (decoded && decoded.uid) {
+          const localUser = await User.findOne({
+            firebaseUid: decoded.uid,
+          }).select("_id");
+          if (localUser) data.owner = localUser._id;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not attach owner to sensor data:", e && e.message);
+    }
+
+    if (body.timestamp) data.timestamp = new Date(body.timestamp);
+    data.meta = Object.assign({}, body.meta || {}, { raw: body });
+
+    const doc = await SensorData.create(data);
+    return res
+      .status(201)
+      .json({ status: "success", data: { sensorData: doc } });
+  } catch (err) {
+    console.error("createSensorData error:", err && err.message);
     return res
       .status(400)
       .json({ status: "fail", message: err && err.message });
