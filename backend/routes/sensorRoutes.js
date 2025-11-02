@@ -24,4 +24,23 @@ router.post("/sensor-data", (req, res) => {
   res.json({ status: "ok" });
 });
 
+
+
+router.post('/ingest', async (req, res) => {
+  try {
+    const { farmId, soilMoisture, temperature, humidity } = req.body;
+    if (!farmId || soilMoisture === undefined) {
+      return res.status(400).json({ error: 'Missing data' });
+    }
+    const sensorData = new Sensor({ farmId, soilMoisture, temperature, humidity });
+    await sensorData.save();
+    // Trigger AI prediction (see below)
+    // require('../services/aiService').predictIrrigation(farmId);
+    res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 module.exports = router;

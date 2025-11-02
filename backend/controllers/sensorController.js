@@ -1,7 +1,11 @@
-const Sensor = require("../models/sensorModel");
+
+const Sensor = require('../models/sensorModel');
+const Device = require('../models/deviceModel');
+const IrrigationLog = require('../models/irrigationLogModel');
 const SensorData = require("../models/sensorDataModel");
 const User = require("../models/userModel");
 const admin = require("firebase-admin");
+
 
 // Create a sensor reading
 exports.createSensor = async (req, res) => {
@@ -154,7 +158,8 @@ exports.getSensors = async (req, res) => {
       .skip(skip)
       .limit(Number(limit));
     return res.status(200).json({
-      status: "success",
+
+      status: 'success',
       results: docs.length,
       data: { sensors: docs },
     });
@@ -227,5 +232,88 @@ exports.getDeviceStatus = async (req, res) => {
   } catch (err) {
     console.error("getDeviceStatus error:", err && err.message);
     return res.status(500).json({ status: "error", message: "Server error" });
+  }
+};
+
+// POST /api/v1/sensor/data  (mounted path shown in routes)
+exports.receiveSensorData = async (req, res) => {
+  try {
+    const {
+      deviceId,
+      temperature,
+      humidity,
+      soilMoisture,
+      pH,
+      npk,
+      pumpStatus,
+    } = req.body;
+
+    if (!deviceId) {
+      return res
+        .status(400)
+        .json({ status: 'fail', message: 'deviceId is required' });
+    }
+
+    // Save sensor data
+    const data = new SensorData({
+      deviceId,
+      temperature,
+      humidity,
+      soilMoisture,
+      pH,
+      npk,
+      pumpStatus,
+    });
+    await data.save();
+
+    // Update device last seen (create device doc if not exist)
+    await Device.updateOne(
+      { deviceId },
+      { $set: { lastSeen: new Date() } },
+      { upsert: true }
+    );
+
+    // Log pump change (compare previous record)
+    const last = await Sensor.findOne({ deviceId }).sort({ createdAt: -2 });
+    if (
+      last &&
+      typeof last.pumpStatus !== 'undefined' &&
+      last.pumpStatus !== pumpStatus
+    ) {
+      await new IrrigationLog({
+        deviceId,
+        action: pumpStatus ? 'start' : 'stop',
+        triggeredBy: 'auto', // or 'manual' if provided by client
+      }).save();
+    }
+
+    // AI Prediction (fire-and-forget)
+    // if (typeof predictIrrigation === 'function') {
+    //   predictIrrigation(deviceId).catch((e) =>
+    //     console.error('predictIrrigation error:', e && e.message)
+    //   );
+    // }
+
+    return res.status(201).json({ status: 'success', data: { saved: true } });
+  } catch (err) {
+    console.error('Sensor data error:', err && err.message);
+    return res
+      .status(500)
+      .json({ status: 'error', message: err && err.message });
+  }
+};
+
+// GET /api/v1/sensor/latest/:deviceId
+exports.getLatestData = async (req, res) => {
+  try {
+    const data = await SensorData.findOne({
+      deviceId: req.params.deviceId,
+    }).sort({ createdAt: -1 });
+    return res.status(200).json({ status: 'success', data: data || {} });
+  } catch (err) {
+    console.error('getLatestData error:', err && err.message);
+    return res
+      .status(500)
+      .json({ status: 'error', message: err && err.message });
   }
 };

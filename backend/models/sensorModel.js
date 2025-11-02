@@ -12,7 +12,17 @@ const sensorSchema = new mongoose.Schema(
 
     sensorId: {
       type: String,
+
+      // required: [true, 'Sensor must have an id'],
+      trim: true,
+      index: true,
+    },
+    // new: deviceId to match incoming device messages
+    deviceId: {
+      type: String,
+
       required: [true, "Sensor must have an id"],
+
       trim: true,
       index: true,
     },
@@ -45,6 +55,13 @@ const sensorSchema = new mongoose.Schema(
       max: 100,
       required: false,
     },
+
+    // new fields from SensorData
+
+    pumpStatus: {
+      type: Boolean,
+      default: false,
+
     // pump state: 0 or 1 or boolean
     pump: {
       type: Number,
@@ -103,6 +120,9 @@ const sensorSchema = new mongoose.Schema(
 // Compound index for queries by farm ordered by recent timestamp
 sensorSchema.index({ farmId: 1, timestamp: -1 });
 
+// index for deviceId lookups
+sensorSchema.index({ deviceId: 1 });
+
 // 2dsphere index for geo queries if location.coordinates provided
 sensorSchema.index({ location: "2dsphere" });
 
@@ -125,6 +145,18 @@ sensorSchema.method("toJSON", function () {
   return obj;
 });
 
+
+sensorSchema.pre('save', function (next) {
+  if (this.soilMoisture < 30) {
+    console.log('Alert: Low moisture for farm ' + this.farmId);
+    // Send email/SMS or push notification
+  }
+  next();
+});
+
+
+
 const Sensor = mongoose.model("Sensor", sensorSchema);
+
 
 module.exports = Sensor;
