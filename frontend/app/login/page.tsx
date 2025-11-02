@@ -240,7 +240,10 @@ export default function LoginPage() {
               dispatch(loginSuccess({ user, idToken: idToken || '' }));
             }
           } catch (e) {
-            console.warn('Could not reach auth endpoint to hydrate server user:', e);
+            console.warn(
+              'Could not reach auth endpoint to hydrate server user:',
+              e
+            );
             const user = {
               name: u.displayName,
               email: u.email,
