@@ -32,6 +32,11 @@ const sensorDatasSchema = new mongoose.Schema(
       type: Number,
       required: [true, "npk is required"],
     },
+    pump: {
+      type: Number,
+      enum: [0, 1],
+      required: false,
+    },
     receivedAt: {
       type: Date,
       required: true,

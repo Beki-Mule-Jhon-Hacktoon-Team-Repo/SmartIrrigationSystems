@@ -44,7 +44,8 @@ const INITIAL_TEMPERATURE = [
 export default function FarmerDashboard() {
   // Config: adjust for your environment
   const SOCKET_URL =
-    process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000";
+    process.env.NEXT_PUBLIC_SOCKET_URL ||
+    "https://smartirrigationsystems.onrender.com";
   // deviceId is chosen by the user via modal or loaded from localStorage
   const [deviceId, setDeviceId] = useState<string>("");
   const [showDeviceModal, setShowDeviceModal] = useState<boolean>(false);
@@ -178,6 +179,7 @@ export default function FarmerDashboard() {
     soil: null as number | null,
     ph: null as number | null,
     npk: null as number | null,
+    pump: null as number | null, // 1 = on, 0 = off
     receivedAt: null as string | null,
   });
   const [connected, setConnected] = useState(false);
@@ -221,6 +223,19 @@ export default function FarmerDashboard() {
           typeof payload.humidity === "number" ? payload.humidity : null;
         const ph = typeof payload.ph === "number" ? payload.ph : null;
         const npk = typeof payload.npk === "number" ? payload.npk : null;
+        // parse pump: accept 1/0, "1"/"0", true/false
+        let pumpVal: number | null = null;
+        if (payload.pump !== undefined && payload.pump !== null) {
+          if (typeof payload.pump === "number")
+            pumpVal = payload.pump === 1 ? 1 : payload.pump === 0 ? 0 : null;
+          else if (typeof payload.pump === "boolean")
+            pumpVal = payload.pump ? 1 : 0;
+          else if (typeof payload.pump === "string") {
+            const s = payload.pump.trim().toLowerCase();
+            if (s === "1" || s === "true") pumpVal = 1;
+            else if (s === "0" || s === "false") pumpVal = 0;
+          }
+        }
         const receivedAt = payload.receivedAt
           ? new Date(payload.receivedAt).toLocaleTimeString()
           : new Date().toLocaleTimeString();
@@ -231,6 +246,7 @@ export default function FarmerDashboard() {
           soil: soilVal,
           ph,
           npk,
+          pump: pumpVal,
           receivedAt,
         });
 
@@ -375,7 +391,7 @@ export default function FarmerDashboard() {
       />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -436,6 +452,32 @@ export default function FarmerDashboard() {
               </p>
             </div>
             <AlertTriangle className="w-10 h-10 text-yellow-600/30" />
+          </div>
+        </Card>
+
+        {/* Realtime metric: Pump */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Pump</p>
+              <p className="text-2xl font-bold">
+                {latest.pump === 1 ? (
+                  <span className="text-green-600">On</span>
+                ) : latest.pump === 0 ? (
+                  <span className="text-red-600">Off</span>
+                ) : (
+                  "—"
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {latest.receivedAt ? `Last: ${latest.receivedAt}` : "No data"}
+              </p>
+            </div>
+            <CheckCircle
+              className={`w-10 h-10 ${
+                latest.pump === 1 ? "text-green-500/30" : "text-red-500/30"
+              }`}
+            />
           </div>
         </Card>
       </div>

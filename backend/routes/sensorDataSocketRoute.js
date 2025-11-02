@@ -8,6 +8,19 @@ module.exports = function createSensorDataRouter({ io } = {}) {
 
   const isValidNumber = (v) => typeof v === "number" && Number.isFinite(v);
 
+  // helper: parse pump value (accept "1"/"0", boolean, number)
+  const parsePump = (v) => {
+    if (v === undefined || v === null) return null;
+    if (typeof v === "number") return v === 1 ? 1 : v === 0 ? 0 : null;
+    if (typeof v === "boolean") return v ? 1 : 0;
+    if (typeof v === "string") {
+      const s = v.trim().toLowerCase();
+      if (s === "1" || s === "true") return 1;
+      if (s === "0" || s === "false") return 0;
+    }
+    return null;
+  };
+
   // POST /sensor/:deviceId
   router.post("/sensor/:deviceId", async (req, res) => {
     const { deviceId } = req.params;
@@ -30,6 +43,9 @@ module.exports = function createSensorDataRouter({ io } = {}) {
       });
     }
 
+    // parse pump (optional)
+    const pumpVal = parsePump(payload.pump);
+
     const record = {
       // include both fields so models that expect deviceId or sensorId work
       deviceId,
@@ -39,6 +55,8 @@ module.exports = function createSensorDataRouter({ io } = {}) {
       soil: payload.soil,
       ph: payload.ph,
       npk: payload.npk,
+      // include pump only when parsed successfully (0 or 1)
+      ...(pumpVal !== null ? { pump: pumpVal } : {}),
       receivedAt: new Date(),
       meta: payload.meta || {},
     };
@@ -84,6 +102,7 @@ module.exports = function createSensorDataRouter({ io } = {}) {
       soil: 40,
       ph: 6.8,
       npk: 10,
+      pump: 1, // sample pump state (1 = on)
       receivedAt: new Date(),
       meta: { test: true },
     };
