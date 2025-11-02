@@ -1,17 +1,26 @@
-"use client"
+'use client';
 
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
-import { Download, Filter } from "lucide-react"
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
+import { Download, Filter } from 'lucide-react';
 
 const monthlyData = [
-  { month: "Jan", water: 8000, cost: 400 },
-  { month: "Feb", water: 7500, cost: 375 },
-  { month: "Mar", water: 9000, cost: 450 },
-  { month: "Apr", water: 7200, cost: 360 },
-  { month: "May", water: 6800, cost: 340 },
-]
+  { month: 'Jan', water: 8000, cost: 400 },
+  { month: 'Feb', water: 7500, cost: 375 },
+  { month: 'Mar', water: 9000, cost: 450 },
+  { month: 'Apr', water: 7200, cost: 360 },
+  { month: 'May', water: 6800, cost: 340 },
+];
 
 export default function ReportsPage() {
   return (
@@ -19,7 +28,9 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Reports</h1>
-          <p className="text-muted-foreground">Monitor your farm performance metrics.</p>
+          <p className="text-muted-foreground">
+            Monitor your farm performance metrics.
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
@@ -35,7 +46,9 @@ export default function ReportsPage() {
 
       {/* Water & Cost Report */}
       <Card className="p-6">
-        <h2 className="font-semibold text-lg mb-4">Monthly Water Usage & Costs</h2>
+        <h2 className="font-semibold text-lg mb-4">
+          Monthly Water Usage & Costs
+        </h2>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={monthlyData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -43,8 +56,8 @@ export default function ReportsPage() {
             <YAxis />
             <Tooltip />
             <Legend />
-            <Bar dataKey="water" fill="hsl(var(--color-primary))" name="Water (L)" />
-            <Bar dataKey="cost" fill="hsl(var(--color-accent))" name="Cost ($)" />
+            <Bar dataKey="water" fill="#1C5253" name="Water (L)" />
+            <Bar dataKey="cost" fill="#204622" name="Cost ($)" />
           </BarChart>
         </ResponsiveContainer>
       </Card>
@@ -52,7 +65,9 @@ export default function ReportsPage() {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-6">
-          <p className="text-sm text-muted-foreground mb-2">Total Water Used (May)</p>
+          <p className="text-sm text-muted-foreground mb-2">
+            Total Water Used (May)
+          </p>
           <p className="text-3xl font-bold">6,800 L</p>
           <p className="text-xs text-green-600 mt-2">↓ 5.5% from last month</p>
         </Card>
@@ -67,7 +82,9 @@ export default function ReportsPage() {
           <p className="text-xs text-muted-foreground mt-2">May average</p>
         </Card>
         <Card className="p-6">
-          <p className="text-sm text-muted-foreground mb-2">Savings vs Target</p>
+          <p className="text-sm text-muted-foreground mb-2">
+            Savings vs Target
+          </p>
           <p className="text-3xl font-bold">28%</p>
           <p className="text-xs text-green-600 mt-2">✓ Exceeding goals</p>
         </Card>
@@ -100,5 +117,5 @@ export default function ReportsPage() {
         </table>
       </Card>
     </div>
-  )
+  );
 }
