@@ -1,8 +1,10 @@
 // controllers/authController.js
+
 const User = require('../models/userModel');
 const admin = require('firebase-admin');
 const sendEmail = require('../utils/email');
 const crypto = require('crypto');
+
 
 exports.register = async (req, res) => {
   try {
@@ -11,8 +13,8 @@ exports.register = async (req, res) => {
     // Validate input
     if (!email || !password) {
       return res.status(400).json({
-        status: 'fail',
-        message: 'Email and password are required',
+        status: "fail",
+        message: "Email and password are required",
       });
     }
 
@@ -27,50 +29,50 @@ exports.register = async (req, res) => {
           displayName: name,
         });
         firebaseUid = fbUser.uid;
-        console.log('Firebase user created:', firebaseUid);
+        console.log("Firebase user created:", firebaseUid);
       } catch (fbErr) {
-        console.warn('Firebase error:', fbErr.code, fbErr.message);
+        console.warn("Firebase error:", fbErr.code, fbErr.message);
 
         // Handle known Firebase errors
-        if (fbErr.code === 'auth/email-already-exists') {
+        if (fbErr.code === "auth/email-already-exists") {
           try {
             const existing = await admin.auth().getUserByEmail(email);
             firebaseUid = existing.uid;
-            console.log('Reusing Firebase UID:', firebaseUid);
+            console.log("Reusing Firebase UID:", firebaseUid);
           } catch (getErr) {
             return res.status(400).json({
-              status: 'fail',
-              message: 'Email already in use (Firebase)',
+              status: "fail",
+              message: "Email already in use (Firebase)",
             });
           }
-        } else if (fbErr.code === 'auth/invalid-password') {
+        } else if (fbErr.code === "auth/invalid-password") {
           return res.status(400).json({
-            status: 'fail',
-            message: 'Password must be at least 6 characters',
+            status: "fail",
+            message: "Password must be at least 6 characters",
           });
-        } else if (fbErr.code?.includes('permission') || fbErr.status === 403) {
+        } else if (fbErr.code?.includes("permission") || fbErr.status === 403) {
           return res.status(403).json({
-            status: 'fail',
-            message: 'Firebase Auth not properly configured (check console)',
+            status: "fail",
+            message: "Firebase Auth not properly configured (check console)",
             code: fbErr.code,
           });
         } else {
           return res.status(400).json({
-            status: 'fail',
-            message: fbErr.message || 'Firebase registration failed',
+            status: "fail",
+            message: fbErr.message || "Firebase registration failed",
           });
         }
       }
     } else {
-      console.log('Firebase Admin not initialized – skipping Firebase user');
+      console.log("Firebase Admin not initialized – skipping Firebase user");
     }
 
     // === Create Local MongoDB User ===
     const existingLocal = await User.findOne({ email });
     if (existingLocal) {
       return res.status(400).json({
-        status: 'fail',
-        message: 'User already exists in local database',
+        status: "fail",
+        message: "User already exists in local database",
       });
     }
 
@@ -78,21 +80,21 @@ exports.register = async (req, res) => {
       name,
       email,
       password, // will be hashed by pre-save hook
-      role: role || 'user',
+      role: role || "user",
       firebaseUid,
     });
 
     user.password = undefined;
 
     return res.status(201).json({
-      status: 'success',
+      status: "success",
       data: { user, firebaseUid },
     });
   } catch (err) {
-    console.error('Register error:', err);
+    console.error("Register error:", err);
     return res.status(500).json({
-      status: 'error',
-      message: 'Server error during registration',
+      status: "error",
+      message: "Server error during registration",
     });
   }
 };
@@ -103,42 +105,42 @@ exports.login = async (req, res) => {
     if (!email || !password) {
       return res
         .status(400)
-        .json({ status: 'fail', message: 'Email and password are required' });
+        .json({ status: "fail", message: "Email and password are required" });
     }
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }).select("+password");
     if (!user) {
       return res
         .status(401)
-        .json({ status: 'fail', message: 'Incorrect email or password' });
+        .json({ status: "fail", message: "Incorrect email or password" });
     }
 
     const correct = await user.correctPassword(password, user.password);
     if (!correct) {
       return res
         .status(401)
-        .json({ status: 'fail', message: 'Incorrect email or password' });
+        .json({ status: "fail", message: "Incorrect email or password" });
     }
 
     user.password = undefined;
-    return res.status(200).json({ status: 'success', data: { user } });
+    return res.status(200).json({ status: "success", data: { user } });
   } catch (err) {
-    console.error('login error:', err && err.message);
-    return res.status(500).json({ status: 'error', message: 'Server error' });
+    console.error("login error:", err && err.message);
+    return res.status(500).json({ status: "error", message: "Server error" });
   }
 };
 
 exports.getUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id).select("-password");
     if (!user)
       return res
         .status(404)
-        .json({ status: 'fail', message: 'User not found' });
-    return res.status(200).json({ status: 'success', data: { user } });
+        .json({ status: "fail", message: "User not found" });
+    return res.status(200).json({ status: "success", data: { user } });
   } catch (err) {
-    console.error('getUser error:', err && err.message);
-    return res.status(500).json({ status: 'error', message: 'Server error' });
+    console.error("getUser error:", err && err.message);
+    return res.status(500).json({ status: "error", message: "Server error" });
   }
 };
 

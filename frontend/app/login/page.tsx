@@ -1,3 +1,33 @@
+// "use client";
+
+// import type React from "react";
+
+// import { Navbar } from "@/components/navbar";
+// import { Footer } from "@/components/footer";
+// import { Button } from "@/components/ui/button";
+// import { Card } from "@/components/ui/card";
+// import { Input } from "@/components/ui/input";
+// import { Label } from "@/components/ui/label";
+// import Link from "next/link";
+// import { useEffect, useState, useCallback } from "react";
+// import { Eye, EyeOff } from "lucide-react";
+// import { useAppDispatch } from "@/store/hooks";
+// import { loginStart, loginSuccess, logout } from "@/store/authSlice";
+// import {
+//   auth,
+//   provider,
+//   signInWithPopup,
+//   firebaseSignOut,
+//   onAuthStateChanged,
+// } from "@/lib/firebase";
+// import { useRouter } from "next/navigation";
+
+// export default function LoginPage() {
+//   const [showPassword, setShowPassword] = useState(false);
+//   const [loading, setLoading] = useState(false);
+//   const dispatch = useAppDispatch();
+//   const router = useRouter();
+
 "use client";
 
 import type React from "react";
@@ -9,18 +39,153 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { loginStart, loginSuccess, logout } from "@/store/authSlice";
+import {
+  auth,
+  provider,
+  signInWithPopup,
+  firebaseSignOut,
+  onAuthStateChanged,
+} from "@/lib/firebase";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const dispatch = useAppDispatch();
+  const router = useRouter();
+
+  const authState = useAppSelector((s) => s.auth);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     // Simulate login delay
     setTimeout(() => setLoading(false), 1000);
+  };
+
+  const loginWithGoogle = useCallback(async () => {
+    dispatch(loginStart());
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const firebaseUser = result.user;
+      const idToken = await firebaseUser.getIdToken();
+
+      // build a safe base URL: prefer NEXT_PUBLIC_API_BASE_URL, otherwise use current origin
+      const baseUrl =
+        process.env.NEXT_PUBLIC_API_BASE_URL &&
+        process.env.NEXT_PUBLIC_API_BASE_URL !== ""
+          ? process.env.NEXT_PUBLIC_API_BASE_URL
+          : typeof window !== "undefined"
+          ? window.location.origin
+          : "";
+
+      const url = `http://localhost:5000/api/v1/auth/google`;
+
+      // send idToken to backend for server-side verification and user creation
+      let res;
+      try {
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken }),
+        });
+      } catch (networkErr) {
+        console.error(
+          "Network error when calling backend:",
+          networkErr,
+          "url:",
+          url
+        );
+        throw networkErr;
+      }
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "(no body)");
+        console.error("Backend returned non-OK status", res.status, txt);
+        throw new Error("Server verification failed");
+      }
+
+      const body = await res.json().catch(() => ({}));
+      const serverUser = body?.data?.user || {
+        name: firebaseUser.displayName,
+        email: firebaseUser.email,
+      };
+
+      dispatch(loginSuccess({ user: serverUser, idToken }));
+      console.log("Logged in user:", serverUser);
+      // redirect to /farmers after successful login
+      if (serverUser?.role === "admin") {
+        router.push("/admin");
+      }
+
+      if (serverUser?.role === "user") {
+        router.push("/farmer");
+      }
+
+      console.log(serverUser);
+    } catch (err) {
+      console.error("Google login error", err);
+      // optional: dispatch error status or show a toast
+    }
+  }, [dispatch, router]);
+
+  useEffect(() => {
+    // subscribe to Firebase auth state and restore
+    const unsub = onAuthStateChanged(auth, async (u: any) => {
+      if (u) {
+        try {
+          const idToken = await u.getIdToken();
+
+          // Try to fetch the canonical server user (so we have role and other DB fields)
+          const url = `http://localhost:5000/api/v1/auth/google`;
+          let serverUser = null;
+          try {
+            const resp = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken }),
+            });
+            if (resp.ok) {
+              const body = await resp.json().catch(() => ({}));
+              serverUser = body?.data?.user || null;
+            } else {
+              console.warn("Auth verify returned non-OK", resp.status);
+            }
+          } catch (e) {
+            console.warn(
+              "Could not reach auth endpoint to hydrate server user:",
+              e
+            );
+          }
+
+          const user = serverUser || {
+            name: u.displayName,
+            email: u.email,
+            picture: u.photoURL,
+          };
+
+          dispatch(loginSuccess({ user, idToken }));
+        } catch (e) {
+          console.error("onAuthStateChanged handler failed:", e);
+        }
+      } else {
+        dispatch(logout());
+      }
+    });
+    return () => unsub();
+  }, [dispatch]);
+
+  const handleSignOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+    } catch (e) {
+      // ignore
+    }
+    dispatch(logout());
   };
 
   return (
@@ -35,6 +200,30 @@ export default function LoginPage() {
             <p className="text-muted-foreground">
               Sign in to your SmartAgriSense account
             </p>
+          </div>
+
+          <div className="mb-4">
+            <Button
+              variant="ghost"
+              className="w-full flex items-center justify-center gap-2"
+              onClick={loginWithGoogle}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 48 48"
+                className="w-5 h-5"
+              >
+                <path
+                  fill="#fbbc05"
+                  d="M43.6 20.5H42V20H24v8h11.3C34.6 32 30 34 24 34c-7 0-13-6-13-13s6-13 13-13c3.3 0 6.3 1.2 8.6 3.2l6.1-6.1C34.6 2.9 29.6 1 24 1 11.8 1 2 10.8 2 23s9.8 22 22 22c12 0 21.7-8.9 22-20.8.4-1.4.4-2.9.4-3.7 0-.8 0-1.5-.8-2z"
+                />
+                <path
+                  fill="#518ef8"
+                  d="M6.3 14.9l6.6 4.8C14.9 17.2 19 13 24 13c3.3 0 6.3 1.2 8.6 3.2l6.1-6.1C34.6 2.9 29.6 1 24 1 16.9 1 10.7 4.8 6.3 14.9z"
+                />
+              </svg>
+              Sign in with Google
+            </Button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
