@@ -37,6 +37,17 @@ export default function PredictionsPage() {
   // API base (env override or fallback to same origin)
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
+  // helper: build prediction payload from a sensor snapshot (use only selected fields)
+  const buildPredictPayload = (sensor: any) => {
+    if (!sensor) return null;
+    // Use only temperature, humidity and soil for AI prediction (exclude ph and npk)
+    const temperature =
+      sensor.temperature != null ? Number(sensor.temperature) : NaN;
+    const humidity = sensor.humidity != null ? Number(sensor.humidity) : NaN;
+    const soil = sensor.soil != null ? Number(sensor.soil) : NaN;
+    return { temperature, humidity, soil };
+  };
+
   // Prediction form + history state
   const [predictForm, setPredictForm] = useState({
     temperature: "",
@@ -144,7 +155,7 @@ export default function PredictionsPage() {
     setPredicting(true);
     try {
       const base = API_BASE ? API_BASE.replace(/\/$/, "") : "";
-      const url = "http:localhost:5000/predict";
+      const url = base ? `${base}/predict` : `/predict`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -210,27 +221,19 @@ export default function PredictionsPage() {
           predictIntervalRef.current = window.setInterval(async () => {
             const sensor = latestSensorRef.current;
             if (!sensor) return;
-            const payload = {
-              temperature: Number(sensor.temperature),
-              humidity: Number(sensor.humidity),
-              soil: Number(sensor.soil),
-              ph: Number(sensor.ph),
-              npk: Number(sensor.npk),
-            };
+            // build payload using only temperature, humidity and soil
+            const payload = buildPredictPayload(sensor);
             if (
-              [
-                payload.temperature,
-                payload.humidity,
-                payload.soil,
-                payload.ph,
-                payload.npk,
-              ].some((v) => Number.isNaN(v))
+              // validate the selected fields
+              [payload?.temperature, payload?.humidity, payload?.soil].some(
+                (v) => Number.isNaN(v)
+              )
             )
               return;
             setRtPredicting(true);
             try {
               const base = API_BASE ? API_BASE.replace(/\/$/, "") : "";
-              const url = base ? `${base}/predict` : `/predict`;
+              const url = "http://localhost:5000/predict";
               const res = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -319,6 +322,11 @@ export default function PredictionsPage() {
   // UI render: reuse existing charts and add realtime panel + realtime history
   return (
     <div className="p-4 md:p-8 space-y-8">
+      {/* NOTE: realtime prediction uses temperature, humidity and soil from incoming sensor data */}
+      <div className="text-sm text-muted-foreground">
+        Realtime predict fields: <strong>temperature, humidity, soil</strong>
+      </div>
+
       {/* Device selection modal */}
       {showDeviceModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
