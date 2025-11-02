@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import {
   LineChart,
@@ -264,6 +264,28 @@ export default function PredictionsPage() {
     }
   }
 
+  // normalize moisture data so chart always gets a numeric 'moisture' field
+  const chartMoisture = useMemo(() => {
+    return (moistureData || []).map((d: any, i: number) => {
+      // Accept different possible keys from backend/realtime: moisture, soil, soilMoisture
+      const raw = d || {};
+      const moisture =
+        raw.moisture ?? raw.soil ?? raw.soilMoisture ?? raw.value ?? null;
+      // Keep time if present, else fallback to index to preserve order
+      const time = raw.time ?? raw.timestamp ?? `t${i}`;
+      return {
+        ...raw,
+        time,
+        moisture:
+          typeof moisture === "number"
+            ? moisture
+            : moisture === null
+            ? null
+            : Number(moisture),
+      };
+    });
+  }, [moistureData]);
+
   // UI render — reuse existing layout but source data from local realtime mirrors (moistureData, temperatureData, rtPredictHistory)
   return (
     <div className="p-4 md:p-8 space-y-8">
@@ -357,7 +379,7 @@ export default function PredictionsPage() {
           <h2 className="font-semibold text-lg">Soil Moisture (Realtime)</h2>
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={moistureData}>
+          <LineChart data={chartMoisture}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="time" />
             <YAxis />
@@ -366,13 +388,15 @@ export default function PredictionsPage() {
             <Line
               type="monotone"
               dataKey="moisture"
-              stroke="hsl(var(--color-primary))"
+              stroke="#10B981"        // explicit color (teal) to ensure it renders
               strokeWidth={2}
               dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </Card>
+              connectNulls={true}     // connect across missing/null values
+              isAnimationActive={false}
+             />
+           </LineChart>
+         </ResponsiveContainer>
+       </Card>
 
       {/* Temperature chart */}
       <Card className="p-6">
