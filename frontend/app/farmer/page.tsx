@@ -94,11 +94,15 @@ export default function FarmerDashboard() {
     // BarcodeDetector API
     const BarcodeDetectorClass = (window as any).BarcodeDetector;
     if (!BarcodeDetectorClass) {
-      alert("QR scanning not supported in this browser. Please enter device id manually.");
+      alert(
+        "QR scanning not supported in this browser. Please enter device id manually."
+      );
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
       const video = document.createElement("video");
       videoRef.current = video;
       video.autoplay = true;
@@ -114,7 +118,10 @@ export default function FarmerDashboard() {
         try {
           const detections = await detectorRef.current.detect(video);
           if (detections && detections.length) {
-            const raw = detections[0].rawValue || detections[0].rawData || detections[0].raw;
+            const raw =
+              detections[0].rawValue ||
+              detections[0].rawData ||
+              detections[0].raw;
             if (raw) {
               // found code
               stopScan();
@@ -278,7 +285,9 @@ export default function FarmerDashboard() {
         s.disconnect();
       }
     };
-  }, [SOCKET_URL /* removed deviceId from deps on purpose to avoid reconnect loops */]);
+  }, [
+    SOCKET_URL /* removed deviceId from deps on purpose to avoid reconnect loops */,
+  ]);
 
   // when deviceId is set after socket created, emit join
   useEffect(() => {
@@ -296,7 +305,9 @@ export default function FarmerDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-2">Enter Device ID</h3>
-            <p className="text-sm text-muted-foreground mb-4">Type the device id or scan QR to join realtime updates.</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Type the device id or scan QR to join realtime updates.
+            </p>
             <input
               value={deviceInput}
               onChange={(e) => setDeviceInput(e.target.value)}
@@ -317,7 +328,9 @@ export default function FarmerDashboard() {
                 Scan QR
               </button>
               <button
-                onClick={() => { setShowDeviceModal(false); }}
+                onClick={() => {
+                  setShowDeviceModal(false);
+                }}
                 className="px-4 py-2 bg-red-100 rounded"
               >
                 Close
@@ -325,9 +338,14 @@ export default function FarmerDashboard() {
             </div>
             <div className="mt-3">
               {/* video preview for scanning (hidden until camera active) */}
-              <div id="qr-preview" className="w-full h-40 bg-black/5 rounded overflow-hidden flex items-center justify-center">
+              <div
+                id="qr-preview"
+                className="w-full h-40 bg-black/5 rounded overflow-hidden flex items-center justify-center"
+              >
                 {/* Note: we don't append the <video> DOM here; startScan creates the video element */}
-                <p className="text-sm text-muted-foreground">When scanning, allow camera access.</p>
+                <p className="text-sm text-muted-foreground">
+                  When scanning, allow camera access.
+                </p>
               </div>
             </div>
           </div>
