@@ -139,16 +139,70 @@ exports.listUsers = async (req, res) => {
       .skip(skip)
       .limit(Number(limit));
     const total = await User.countDocuments(filter);
-    return res
-      .status(200)
-      .json({
-        status: 'success',
-        results: users.length,
-        total,
-        data: { users },
-      });
+    return res.status(200).json({
+      status: 'success',
+      results: users.length,
+      total,
+      data: { users },
+    });
   } catch (err) {
     console.error('listUsers error:', err && err.message);
+    return res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+};
+
+// Admin: list farms (pagination & optional search by name/location)
+exports.listFarmers = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, q } = req.query;
+    const filter = {};
+    if (q) {
+      const re = new RegExp(String(q), 'i');
+      filter.$or = [{ name: re }, { email: re }];
+    }
+    const skip = (Math.max(1, Number(page)) - 1) * Number(limit);
+    const users = await User.find(filter)
+      .select('-password')
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
+    const total = await User.countDocuments(filter);
+    return res.status(200).json({
+      status: 'success',
+      results: users.length,
+      total,
+      data: { users },
+    });
+  } catch (err) {
+    console.error('listFarmers error:', err && err.message);
+    return res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+};
+
+// ------------------- NEW: list only regular users (role === 'user') -------------------
+exports.listRegularUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, q } = req.query;
+    const filter = { role: 'user' };
+    if (q) {
+      const re = new RegExp(String(q), 'i');
+      filter.$or = [{ name: re }, { email: re }];
+    }
+    const skip = (Math.max(1, Number(page)) - 1) * Number(limit);
+    const users = await User.find(filter)
+      .select('-password')
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
+    const total = await User.countDocuments(filter);
+    return res.status(200).json({
+      status: 'success',
+      results: users.length,
+      total,
+      data: { users },
+    });
+  } catch (err) {
+    console.error('listRegularUsers error:', err && err.message);
     return res.status(500).json({ status: 'error', message: 'Server error' });
   }
 };
